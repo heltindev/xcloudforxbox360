@@ -8,6 +8,14 @@ Desenvolver um cliente Xbox Cloud Gaming que rode **diretamente no processador X
 
 A implementação atual comprova a compilação de um aplicativo PowerPC para RGH, desenha uma interface e realiza **diagnósticos de DNS, UDP e TCP**. Não existe navegador web, OAuth, TLS moderno ou WebRTC funcional.
 
+## Lista completa do que falta
+
+- **[STATUS_DO_PROJETO.md](STATUS_DO_PROJETO.md)** — estado real de cada módulo: funcionando, código parcial ou ainda não implementado.
+- **[ROADMAP.md](ROADMAP.md)** — checklist detalhado de todas as tarefas para xCloud/Fortnite, dependências e testes.
+- **[Relatório do RGH 3 — 20/10/2026](docs/TESTE_RGH3_2026-10-20.md)** — DNS Xbox 1 IP; TCP Xbox.com:443 e 1.1.1.1:443 expiraram com erro 10060, origem 8.
+
+> **Atenção:** esta pasta GitHub-Source é uma cópia de código-fonte anterior às alterações da raiz principal. A lista foi sincronizada, mas o código `src/` nesta pasta **não contém todos os módulos novos**. Não publique como uma versão v0.10 completa antes de sincronizar os arquivos de código. As falhas de TCP continuam sem solução.
+
 ## Estado real dos componentes
 
 | Componente | Estado | Próxima validação |
