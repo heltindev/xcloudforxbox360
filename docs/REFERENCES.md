@@ -12,6 +12,8 @@
 | [XCloud4](https://github.com/asp11edgr/XCloud4) | PS4 GoldHEN native xCloud client, README describes Device Code sign-in, streaming and error logs | Native console authentication UX, sign-in over a second device, session lifecycle, controller feedback | OpenOrbis/PS4 GPU, video and network APIs do not run on Xbox 360; reported features must be verified in that target, not assumed on ours |
 | [GR33N](https://github.com/actuallyniaxx/GR33N) | PS3 homebrew xCloud client using mbedTLS, libSRTP, usrsctp, libpeer, fixed-point Opus | **Most relevant native architecture reference**: PowerPC/endianness considerations, TLS/DTLS, STUN/ICE/WebRTC, audio buffers, controller input and performance | PS3 PSL1GHT/RSX/PPC memory layout are different from Xbox 360 XDK/Xenos; dependency ports and legally compatible licenses are required |
 
+For the **actual source-based architecture study and native Xbox 360 adapters**, see [GR33N_XEX_PORT.md](GR33N_XEX_PORT.md), including the pinned GR33N commit and unimplemented pieces.
+
 ## Important findings
 
 **GR33N lists the following dependency build order:**

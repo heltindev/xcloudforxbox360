@@ -51,6 +51,10 @@ Inspired by Xbox dashboard conventions and [xbox_launcher](https://github.com/Lu
 | DNS, UDP and TCP 80/443 diagnostics | Implemented as probes, **external TCP currently fails on RGH** |
 | Local HTTP/JSON/OAuth device-response parsers | Experimental, **offline only** |
 | RTP parsing and H.264 NAL scanning | Experimental, **not WebRTC/decoding** |
+| GR33N-informed XInput gamepad packet encoder | **Source written, uncompiled**; no WebRTC transport |
+| Cloud control-message formatting and HandshakeAck parser | **Source written, uncompiled**; no authorized session |
+| RTP/H.264 Single NAL, STAP-A, FU-A access-unit assembly | **Source written, uncompiled**; no jitter/NACK, no decoder |
+| Xbox-native peer callback bridge | **Source written, uncompiled**; no peer implementation connected |
 | Microsoft OAuth sign-in and QR code | Not implemented |
 | Verified HTTPS/TLS | Not implemented |
 | xCloud session discovery and Fortnite launch | Not implemented |
@@ -60,6 +64,12 @@ Inspired by Xbox dashboard conventions and [xbox_launcher](https://github.com/Lu
 
 Full step-by-step development list: **[ROADMAP.md](ROADMAP.md)**.
 
+### Native Xbox 360 port based on GR33N research
+
+The GR33N (PS3) architecture was studied and **selected interoperability components were independently rewritten for Xenon PowerPC/XDK**, rather than compiling PS3 source as an XEX. New files include `src/xcloud_input.cpp`, `src/xcloud_control.cpp`, `src/h264_rtp_receiver.cpp` and `src/xcloud_bridge.cpp`. Fixed offline packet examples have been added to `protocol_selftest.cpp`.
+
+**This is not a complete GR33N port, Xbox Cloud Gaming sign-in, WebRTC implementation or playable Fortnite client.** The latest files have not been compiled on the console. See [GR33N → XEX porting notes](docs/GR33N_XEX_PORT.md) for the exact mapping, remaining dependencies, and GPL-3.0 attribution/licensing considerations.
+
 ## Directory layout
 
 ```text
@@ -67,6 +77,7 @@ XCLOUDFORXBOX360/
 ├── src/                        # PowerPC C++, UI, network probes and protocol parsers
 ├── docs/
 │   ├── REFERENCES.md           # Native-console references and license research
+│   ├── GR33N_XEX_PORT.md       # Details of the experimental PS3 architecture adaptation
 │   ├── POWERPC.md              # Xenon architecture and streaming design
 │   ├── RGH_NETWORK.md          # RGH diagnostic results and error sources
 │   ├── TESTE_RGH3_2026-10-20.md

@@ -90,6 +90,9 @@ Checklists have three distinct meanings:
 ## Phase 6 — Media negotiation and real-time transport
 
 - [x] Added an RTP header parser for previously decrypted packet buffers — **not WebRTC or SRTP**.
+- [x] Added `h264_rtp_receiver.cpp`: Single NAL, STAP-A and FU-A into Annex B access units, with sequence loss detection / IDR resync. **Source only, not compiled; no retransmission/jitter buffer or decoder**.
+- [x] Added `xcloud_control.cpp`: bounds-checked handshake/ack, gamepad-change, resolution, video-capabilities and keyframe messages. **Source only; no authorized server connected**.
+- [x] Added `xcloud_bridge.cpp`: Xbox native callbacks for a *future secure peer*. **Currently no peer is bound; cannot start a session**.
 - [ ] Determine the actual WebRTC/signaling requirements of the authorized session.
 - [ ] Evaluate `libpeer` for size, license, compiler and platform portability.
 - [ ] Port a DTLS transport using validated cryptographic primitives.
@@ -116,6 +119,7 @@ Checklists have three distinct meanings:
 ## Phase 8 — Audio and controller interaction
 
 - [x] Added a local XInput snapshot helper capturing controller buttons, triggers and sticks.
+- [x] Added `xcloud_input.cpp`: big-endian-safe little-endian gamepad/metadata packet encoding (38/15 bytes) and Xbox controller button mapping. **Source only, still needs physical RGH verification**.
 - [ ] Confirm negotiated audio format; evaluate **Opus fixed-point** based on GR33N architecture.
 - [ ] Port audio decoder and output via Xbox 360 audio APIs.
 - [ ] Synchronize audio/video clocks and jitter buffers.

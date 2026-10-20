@@ -32,6 +32,10 @@
 | JSON fields parser | Partial | Offline parser checks only |
 | OAuth Device Code response parsing | Partial | No OAuth request or real login |
 | RTP packet header parser | Partial | No authenticated media |
+| XInput to cloud controller binary reports | New source exists | **Not compiled; no WebRTC input channel** |
+| Cloud handshake/capabilities/feedback message formats | New source exists | **Not compiled; no authorized peer** |
+| H.264 RTP FU-A/STAP-A depacketizer and IDR resync | New source exists | **Not compiled; no reorder buffer or decoder** |
+| XEX-native callback bridge (media + input) | New source exists | **No live WebRTC implementation** |
 | H.264 Annex B NAL scanner | Partial | **Not an H.264 decoder** |
 | Full XInput controller snapshot | Partial | No cloud input messages |
 | Protocol parser self-check | Yes | **Latest revision pending** |
