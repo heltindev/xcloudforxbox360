@@ -1,19 +1,21 @@
 # XCloud360
 
-**Protótipo experimental de um cliente Xbox Cloud Gaming para Xbox 360 com RGH/RGH 3.**
+**Protótipo experimental de um cliente Xbox Cloud Gaming nativo para o processador Xenon PowerPC do Xbox 360 com RGH/RGH 3 — sem PC intermediário.**
 
-O objetivo de longo prazo é investigar a possibilidade de acessar o Xbox Cloud Gaming diretamente pelo Xbox 360, sem um computador intermediário. Hoje o projeto **ainda não abre o site do xCloud, não autentica contas Microsoft e não transmite jogos**. A versão atual, **v0.8**, é um aplicativo nativo `.xex` com interface, suporte ao controle e diagnósticos de DNS/TCP.
+O objetivo de longo prazo é investigar a possibilidade de executar o cliente Xbox Cloud Gaming **diretamente no PowerPC big-endian do Xbox 360**, usando a GPU e o controle do próprio console, sem um computador intermediário. O Xenia Canary é apenas um emulador para testes rápidos da interface. Hoje o projeto **ainda não abre o site do xCloud, não autentica contas Microsoft e não transmite jogos**. A versão atual, **v0.8**, é um aplicativo nativo `.xex` com interface, suporte ao controle e diagnósticos de DNS/TCP.
 
 > [!IMPORTANT]
 > Este é um projeto de pesquisa e desenvolvimento homebrew, **não um cliente xCloud funcional**. Não é afiliado à Microsoft ou à Xbox. Não coloque senhas, tokens ou dados de conta Microsoft nos arquivos do projeto.
 
 ![Interface XCloud360 v0.8 no Xenia Canary](docs/xenia-preview.png)
 
+**Arquitetura e requisitos nativos:** [docs/POWERPC.md](docs/POWERPC.md) · **Plano técnico para Fortnite:** [docs/fortnite-architecture.md](docs/fortnite-architecture.md).
+
 ## Estado do projeto
 
 | Recurso | Estado |
 | --- | --- |
-| Aplicativo nativo PowerPC / `.xex` | Compila |
+| Aplicativo nativo PowerPC / `.xex` | Compila; alvo Xbox 360 e ABI PowerPC verificados |
 | Execução e interface no Xenia Canary | Verificadas visualmente |
 | Build para RGH 3 (cabeçalho Retail) | Gerado e verificado com XexTool |
 | Interface com Segoe UI suavizada | Funciona no Xenia; teste no RGH pendente |
