@@ -1,11 +1,12 @@
 #include "platform.h"
 #include "bitmap_font.h"
+#include "embedded_font_resource.h"
 #include <xtl.h>
 #include <d3d9.h>
 #include <AtgApp.h>
 #include <AtgFont.h>
 
-// Smooth Segoe UI XPR for presentation, embedded bitmap as safe fallback.
+// Smooth XPR is linked into the XEX; bitmap is a second, built-in fallback.
 namespace {
     ATG::Font g_font;
     bool g_font_ready = false;
@@ -20,7 +21,7 @@ namespace {
 namespace platform {
 
 bool initialize() {
-    debug_log("[XCloud360] Starting standalone D3D9 renderer / bitmap text.\n");
+    debug_log("[XCloud360] Starting Xbox360 D3D renderer / embedded smooth font.\n");
     g_d3d = Direct3DCreate9(D3D_SDK_VERSION);
     if (!g_d3d) return false;
 
@@ -52,24 +53,20 @@ bool initialize() {
     g_width = (int)p.BackBufferWidth;
     g_height = (int)p.BackBufferHeight;
     ATG::g_pd3dDevice = reinterpret_cast<ATG::D3DDevice*>(g_device);
-    // In Aurora/XeXMenu, game: commonly points to the title directory.
-    // D: is a fallback on consoles launched by alternate dashboards.
-    const char* paths[] = {
-        "game:\\Media\\Fonts\\SegoeUI_24.xpr",
-        "D:\\Media\\Fonts\\SegoeUI_24.xpr"
-    };
-    for (int i = 0; i < 2 && !g_font_ready; ++i)
-        g_font_ready = SUCCEEDED(g_font.Create(paths[i]));
+    // The smooth font is linked directly into the XEX. No Media/Fonts,
+    // title directory, external resource or filesystem mount required.
+    g_font_ready = create_embedded_font(g_font);
     if (g_font_ready)
-        debug_log("[XCloud360] Segoe smooth font loaded.\n");
+        debug_log("[XCloud360] Segoe smooth font loaded internally from XEX.\n");
     else
-        debug_log("[XCloud360] Smooth font missing, embedded bitmap fallback.\n");
+        debug_log("[XCloud360] Internal XPR loading failed, builtin bitmap fallback.\n");
     debug_log("[XCloud360] Renderer ready.\n");
     return true;
 }
 
 void shutdown() {
-    if (g_font_ready) { g_font.Destroy(); g_font_ready = false; }
+    destroy_embedded_font(g_font);
+    g_font_ready = false;
     ATG::g_pd3dDevice = 0;
     g_scene = false;
     if (g_device) { g_device->Release(); g_device = 0; }
@@ -79,7 +76,7 @@ void shutdown() {
 bool pump() { return true; }
 
 InputState read_input() {
-    InputState state = {false, false, false};
+    InputState state = {false, false, false, false, false};
     for (DWORD port = 0; port < 4; ++port) {
         XINPUT_STATE raw;
         ZeroMemory(&raw, sizeof(raw));
@@ -91,6 +88,10 @@ InputState read_input() {
                            !(g_previous[port] & XINPUT_GAMEPAD_B);
         state.back_pressed |= (buttons & XINPUT_GAMEPAD_BACK) &&
                               !(g_previous[port] & XINPUT_GAMEPAD_BACK);
+        state.x_pressed |= (buttons & XINPUT_GAMEPAD_X) &&
+                           !(g_previous[port] & XINPUT_GAMEPAD_X);
+        state.y_pressed |= (buttons & XINPUT_GAMEPAD_Y) &&
+                           !(g_previous[port] & XINPUT_GAMEPAD_Y);
         g_previous[port] = buttons;
     }
     return state;

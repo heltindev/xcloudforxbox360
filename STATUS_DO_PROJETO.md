@@ -1,78 +1,72 @@
-# STATUS DO PROJETO — XCloud360 / Xbox 360 RGH 3
+# XCloud360 — Verified status and current limitations
 
-**Última revisão:** 20/10/2026. **Alvo exclusivo:** Xbox 360 PowerPC Xenon, RGH/RGH 3, sem PC intermediário.
+**Target:** Xbox 360 Xenon PowerPC, RGH/RGH 3, with no intermediary PC.  
+**Status:** experimental Xbox 360 homebrew application; **Fortnite and Xbox Cloud Gaming do not work yet**.  
+**Important:** the latest changes were written but **not compiled or tested by the assistant**. The owner will build and test them on the real console.
 
-> Esta lista diferencia **código escrito**, **comprovado no hardware** e **ainda não implementado**. O projeto NÃO se conecta ao xCloud e NÃO executa Fortnite. O erro 10060 não foi corrigido.
+## Real hardware report (2026-10-20)
 
-## Resultado do seu teste no RGH 3
-
-| Teste no Xbox 360 | Resultado | O que significa |
+| Field | Owner-reported Xbox 360 result | Interpretation |
 | --- | --- | --- |
-| DNS Xbox | **1 IP** | Resolução de nome ocorreu |
-| TCP Xbox.com porta 443 | **10060 / origem 8** | Timeout na espera pela conexão (`TCP_SELECT`) |
-| TCP 1.1.1.1 porta 443 | **10060 / origem 8** | Timeout também usando endereço IP direto |
-| DNS UDP Google | Não informado neste teste | Sem resultado conclusivo |
-| TCP 1.1.1.1 porta 80 | Código adicionado, resultado não informado | Teste comparativo, não corrige a conexão |
+| Xbox DNS | **1 IPv4 address** | Hostname resolved |
+| TCP to Xbox.com:443 | **10060**, source **8** | Timeout while waiting for a connection |
+| Direct TCP to 1.1.1.1:443 | **10060**, source **8** | Same timeout without DNS |
+| Optional DNS over UDP | No result provided | Unverified |
+| TCP to 1.1.1.1:80 | No result provided yet | New optional comparison |
 
-**Conclusão provisória:** DNS funcionou; ambas as conexões TCP externas falharam. O motivo ainda é desconhecido. Investigar XNet Retail, rota e restrições de rede; não assumir que mudar DNS resolve.
+**Source 8** is the application's `TcpProbe::TCP_SELECT` stage. The hostname lookup **did work**. The cause of the outgoing TCP timeouts has **not been isolated**: possible explanations include XNet Retail restrictions, route or firewall behavior, or network configuration. A DNS change alone is not a verified fix.
 
-## A. Implementado e anteriormente observado funcionando
+## Present in source code
 
-- [x] Projeto C++ nativo para Xbox 360 / PowerPC Xenon.
-- [x] Geração do executável `.xex` Retail em versões anteriores.
-- [x] Interface gráfica básica Direct3D e navegação A/B/BACK.
-- [x] Leitura da configuração DNS por XNet (encontrou 1 IP no RGH).
-- [x] Código de diagnóstico com sockets TCP, que executou e registrou o erro 10060 no hardware.
-
-## B. Código escrito — ainda precisa de compilação, teste ou integração
-
-- [ ] **Fonte suavizada dentro do XEX:** carregador de XPR em memória + `embed_font.ps1`, com bitmap reserva. Ainda precisa confirmação de inicialização, link e renderização no RGH.
-- [ ] **Diagnóstico TCP porta 80** além de TCP 443. Ainda precisamos do resultado no RGH.
-- [ ] **Consulta DNS UDP direta aos servidores Google** com resposta validada; resultado no RGH ainda incerto.
-- [ ] **Captura XInput completa:** botões, analógicos e gatilhos, ainda sem envio remoto ao xCloud.
-- [ ] **`http_wire`**: montagem HTTP/1.1 e análise limitada de respostas; sem transporte HTTPS e sem suporte completo a HTTP/chunked.
-- [ ] **`json_fields`**: parser restrito a campos simples; não é um parser JSON geral.
-- [ ] **`oauth_device`**: formatação e interpretação local de mensagens Device Code; não abre login e não possui conexão OAuth.
-- [ ] **`rtp_packet`**: leitura de cabeçalhos RTP já recebidos/descriptografados; não implementa WebRTC ou SRTP.
-- [ ] **`h264_nal`**: identificação de NAL units H.264 Annex B; não decodifica vídeo.
-- [ ] **`protocol_selftest`**: testes offline de parsers; ainda precisam ser conferidos no RGH.
-- [ ] Corrigir eventuais erros do compilador/linker desses módulos com base no log completo do usuário.
-
-## C. Tudo que falta para Fortnite abrir pelo xCloud
-
-| Etapa | Requisito | Estado |
+| Component | Code written | Real RGH validation |
 | --- | --- | --- |
-| 1 | Rede externa confiável: DNS, TCP, UDP, gateway, NAT, reconexão | **BLOQUEADO: erro 10060** |
-| 2 | Determinar se XNet Retail aceita tráfego; se não, avaliar XeLL/libxenon/lwIP | Pesquisa pendente |
-| 3 | Biblioteca TLS moderna portada para PowerPC, relógio e aleatoriedade seguros | Não implementado |
-| 4 | Verificação de certificados e hostname, SNI e HTTPS robusto | Não implementado |
-| 5 | Cliente HTTP/JSON completo, adequado aos serviços autorizados | Parcial, apenas parsers |
-| 6 | Autorização Microsoft OAuth Device Code, cliente registrado e permissões | Parcial, apenas parsing offline |
-| 7 | Exibição de código/QR, polling, tokens protegidos, refresh/logout | Não implementado |
-| 8 | Descoberta de catálogo, autorização da conta, região e acesso legal ao xCloud | Não implementado; acesso de terceiros não garantido |
-| 9 | Criar sessão real do Fortnite e tratar fila, estados e signaling | Não implementado |
-| 10 | WebRTC conforme protocolo vigente: SDP, ICE/STUN/TURN, DTLS/SRTP e canal de dados | Não implementado |
-| 11 | Rede de mídia: RTP/RTCP, jitter, perda, reconexão e sincronização | Apenas parser RTP preliminar |
-| 12 | Decodificação de H.264 ou codec realmente negociado, sem exceder RAM/CPU/GPU | Apenas scanner de NAL; sem decoder |
-| 13 | Decodificação de áudio, buffers e saída de som | Não implementado |
-| 14 | Envio dos controles do Xbox 360 à sessão, latência e feedback | Somente captura XInput |
-| 15 | Interface para conta, QR, fila, vídeo, estado da conexão e erros | Só interface diagnóstica básica |
-| 16 | Segurança, limites, logs sem credenciais, tratamento de travamentos | Parcial e não auditado |
-| 17 | Teste real no RGH, desempenho, FPS, latência, estabilidade e compatibilidade | Pendente |
+| Native PowerPC/Xbox 360 project and older Retail XEX output | Yes | Older revisions ran |
+| Xbox controller input and Direct3D renderer | Yes | Basic navigation on older builds |
+| Xbox green tile-based UI, Fortnite status and optional network test | Yes | **Latest revision pending** |
+| Smooth font generated privately and linked into XEX | Yes | **Latest revision pending** |
+| Bitmap fallback font | Yes | Older revisions ran |
+| XNet DNS and socket/TCP diagnostic | Yes | **10060 timeout measured** |
+| Google DNS over UDP fallback | Yes | Not confirmed on hardware |
+| TCP port 80 comparison | Yes | Not confirmed on hardware |
+| HTTP/1.1 request/response helper | Partial | Offline parser checks only |
+| JSON fields parser | Partial | Offline parser checks only |
+| OAuth Device Code response parsing | Partial | No OAuth request or real login |
+| RTP packet header parser | Partial | No authenticated media |
+| H.264 Annex B NAL scanner | Partial | **Not an H.264 decoder** |
+| Full XInput controller snapshot | Partial | No cloud input messages |
+| Protocol parser self-check | Yes | **Latest revision pending** |
+| Alternate XeLL/libxenon boot proof | Source example exists | ELF **not compiled** |
 
-## Podemos pular o diagnóstico TCP?
+## Not working / not implemented
 
-**Sim, como tela ou etapa de desenvolvimento**: ele pode ficar opcional, e podemos continuar escrevendo outros módulos. **Não é possível pular a necessidade de transporte de rede funcional**, porque o streaming precisa receber mídia e enviar controles. Antes de autenticar de verdade, a conexão TLS validada também é indispensável.
+- **No verified outbound TCP/UDP network backend** suitable for streaming on the RGH.
+- No modern TLS, CA certificate verification, HTTPS client or secure token exchange.
+- No authorized Microsoft OAuth client, device code request, sign-in or QR code screen.
+- No confirmed permission to use the service's streaming/session APIs with this application.
+- No cloud catalog, Fortnite session creation, authorization, queue management or signaling.
+- No negotiated WebRTC peer, ICE/STUN/TURN, DTLS/SRTP or SCTP data channel.
+- No codec decoder for incoming cloud video; no audio decoder/output.
+- No authenticated upload of Xbox controller input to a cloud session.
+- No real playable game, benchmark, stable frame rate or latency figure.
 
-**Trilha recomendada:** continuar os componentes offline em paralelo; quando for possível testar rede no RGH, comparar TCP 80/443 e decidir entre XNet e uma alternativa nativa XeLL/libxenon. **Não afirmar que o xCloud funciona enquanto essas dependências estiverem ausentes.**
+## Work in progress (not yet compiled)
 
-## Regras deste projeto
+- RGH UI now starts on a status/home page: **A = roadmap, Y = Fortnite status, X = optional network diagnostic**, B = back, BACK = exit.
+- The network test does **not** run automatically on startup.
+- The alternative XeLL folder is isolated from the main XDK/XEX build.
+- In-memory font loader follows the Xbox SDK resource allocation conventions more closely.
+- The flat OAuth JSON parser checks complete object syntax and duplicate requested keys.
+- [Five external reference projects](docs/REFERENCES.md) were reviewed to guide native TLS/WebRTC research and UI design.
 
-- O usuário faz a compilação; o assistente não compila, não gera ZIP e não modifica `Release/`.
-- A fonte precisa estar dentro do `.xex` final; não depender de uma pasta `Media/Fonts` no console.
-- Não criar pasta `XCloud360-RGH3` e não criar pacotes ZIP.
-- Manter lista detalhada em `ROADMAP.md` e esta visão geral em `STATUS_DO_PROJETO.md`.
-- Não copiar para o GitHub binários proprietários do XDK, recursos de fonte gerados, credenciais, tokens, CPU Key ou KV.
+## Required next steps
 
-**Checklist detalhado de todas as subtarefas:** [ROADMAP.md](ROADMAP.md).
-**Relato original dos erros:** [docs/TESTE_RGH3_2026-10-20.md](docs/TESTE_RGH3_2026-10-20.md).
+1. Compile latest `Release / Xbox 360` build and send the first compile/link error, if any.
+2. Test UI and font on the physical RGH; verify that optional diagnostics do not block launch.
+3. Prove external network connectivity through XNet or a separate XeLL/libxenon networking experiment.
+4. Port verified HTTPS/TLS with correct certificates and validate legal/authorized xCloud service access.
+5. Implement real login and session negotiation, then media/control transport and decoding.
+6. Declare Fortnite functional **only** when the real RGH displays and controls a cloud session.
+
+See [ROADMAP.md](ROADMAP.md) for the full task-by-task checklist and [docs/REFERENCES.md](docs/REFERENCES.md) for source/license research.
+
+**Build policy:** the owner compiles. No ZIP, no automatic compilation, no file changes inside `Release/`, no `XCloud360-RGH3` distribution directory, and no SDK/XPR binaries in the public repository.

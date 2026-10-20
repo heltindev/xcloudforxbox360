@@ -1,27 +1,51 @@
-# Fortnite no Xbox 360: metas técnicas do XCloud360
+# Fortnite streaming target — Xbox 360 PowerPC
 
-A meta é transmitir Fortnite **dos servidores de jogo para o Xbox 360 RGH 3**, com vídeo/áudio e controle executados no próprio console. **O executável atual NÃO realiza isso.** O jogo não foi portado nem existe um executável nativo de Fortnite para Xbox 360 neste projeto.
+This document describes a **desired architecture**, not a working application. There is no native Fortnite executable for the Xbox 360 in this project. The goal is to render a legitimately authorized **Xbox Cloud Gaming** session on the original hardware.
 
-## Etapas necessárias
+## Required pipeline
 
-| Módulo | Estado |
-| --- | --- |
-| Interface nativa C++/PowerPC para Xbox 360 | Implementada |
-| XNet, DNS UDP e TCP (diagnóstico) | Implementado; resultados RGH ainda precisam ser confirmados |
-| Comunicação externa UDP/TCP confiável | Não comprovada |
-| TLS moderno com certificados verificados | Não implementado |
-| Login Microsoft OAuth autorizado (código/QR) | Não implementado |
-| Autorização de sessão no Xbox Cloud Gaming | Não implementado |
-| Sinalização WebRTC, ICE, DTLS/SRTP | Não implementado |
-| Receber/decodificar vídeo e áudio em tempo real | Não implementado |
-| Enviar controles com baixa latência | Não implementado |
-| Fortnite jogável | Não disponível |
+```text
+             Xbox Cloud Gaming service (remote servers)
+                    |                   ^
+              video/audio           controller input
+                    |                   |
+                  secure real-time transport
+                    |                   |
+               Xbox 360 Xenon PowerPC client (.xex)
+                    |                   |
+                  decoder          XInput data channel
+                    |
+                  Xenos GPU / audio -> TV
+```
 
-## Referências
-- [Greenlight](https://github.com/unknownskl/greenlight) e [Better xCloud](https://github.com/redphx/better-xcloud): referência de arquitetura para clientes modernos. O código não é diretamente compatível com o PowerPC/XDK do Xbox 360.
-- [libxenon](https://github.com/Free60Project/libxenon): alternativa homebrew para investigar limitações XNet do RGH.
+## Missing milestones
 
-## Como colaborar
-Investigar as limitações de rede do Xbox 360 real, a disponibilidade de TLS moderno no PowerPC e caminhos de vídeo/áudio na GPU Xenos. Nunca inclua senhas, tokens ou chaves privadas em repositórios e arquivos TXT.
+1. Reliable external TCP **and** UDP on the physical RGH.
+2. Modern TLS/DTLS with certificate and hostname verification.
+3. Authorized Microsoft Device Code OAuth flow and legitimate xCloud session permissions.
+4. Session discovery and catalog/entitlement for Fortnite in the account/region.
+5. Signaling, ICE/STUN/TURN, secure RTP and real-time controller transport negotiated with the current service.
+6. Compatible video decoder and Xbox 360 Xenos rendering path for a permitted/negotiated codec.
+7. Audio codec decoder, Xbox audio output, synchronized buffers and jitter recovery.
+8. Safe token handling, cancellation, reconnection, memory and latency measurements.
+9. A real-console demonstration with audio, video and control, without intermediary PC.
 
-O próximo teste no RGH usa `XCloud360-RGH3.zip`. Veja [RGH_NETWORK.md](RGH_NETWORK.md).
+### Experimental source already present
+
+- `http_wire`: limited HTTP/1.1 framing, no network/TLS integration.
+- `json_fields` and `oauth_device`: local parsing of Device Code metadata; no real sign-in.
+- `rtp_packet`: header-only RTP parser; not DTLS/SRTP/WebRTC.
+- `h264_nal`: H.264 Annex B scanner; **not** a decoder.
+- `controller_input`: XInput snapshots; no cloud input channel.
+
+## Research projects
+
+- [GR33N (PS3)](https://github.com/actuallyniaxx/GR33N): PowerPC/endianness, native TLS/DTLS, SRTP, usrsctp, libpeer and fixed-point Opus.
+- [XCloud4 (PS4)](https://github.com/asp11edgr/XCloud4): native Device Code sign-in and session UX.
+- [XStreamingDesktop](https://github.com/Geocld/XStreamingDesktop): modern xCloud client and controller UX.
+- [XCTV Player (Google TV)](https://github.com/kjbaker-uk/xctvplayer): fullscreen controller-first TV interface.
+- [xbox_launcher](https://github.com/LuanRoger/xbox_launcher): Xbox Series-inspired dashboard design.
+
+See [REFERENCES.md](REFERENCES.md) for the technology mapping and license restrictions and [ROADMAP.md](../ROADMAP.md) for completion criteria.
+
+**These references are independent projects. Their claims and platform-specific implementations are not proof of support on the Xbox 360.**

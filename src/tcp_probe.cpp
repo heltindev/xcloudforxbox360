@@ -10,7 +10,7 @@
 namespace {
 struct TestOutcome { DWORD error; int source; };
 
-TestOutcome attempt_tcp(const IN_ADDR& ip, DWORD deadline_ms) {
+TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
     TestOutcome result = { 0, TcpProbe::NONE };
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
@@ -30,7 +30,7 @@ TestOutcome attempt_tcp(const IN_ADDR& ip, DWORD deadline_ms) {
     sockaddr_in endpoint;
     ZeroMemory(&endpoint, sizeof(endpoint));
     endpoint.sin_family = AF_INET;
-    endpoint.sin_port = htons(443);
+    endpoint.sin_port = htons(port);
     endpoint.sin_addr = ip;
 
     const int attempt = connect(sock, (const sockaddr*)&endpoint, sizeof(endpoint));
@@ -87,7 +87,8 @@ TcpProbe::TcpProbe()
       dns_addresses_(0), dns_state_(0), dns_error_(0),
       xbox_error_source_(NONE), control_error_source_(NONE),
       udp_dns_state_(0), udp_dns_error_(0), udp_dns_error_source_(0),
-      udp_dns_addresses_(0), dns_path_(0) {}
+      udp_dns_addresses_(0), dns_path_(0), control80_result_(0),
+      control80_error_(0), control80_error_source_(NONE) {}
 
 TcpProbe::~TcpProbe() {
     if (thread_) {
@@ -116,6 +117,9 @@ bool TcpProbe::start() {
     udp_dns_error_source_ = 0;
     udp_dns_addresses_ = 0;
     dns_path_ = 0;
+    control80_result_ = 0;
+    control80_error_ = 0;
+    control80_error_source_ = NONE;
     state_ = RUNNING;
     thread_ = CreateThread(NULL, 0, worker, this, 0, NULL);
     if (!thread_) {
@@ -150,6 +154,9 @@ unsigned long TcpProbe::udp_dns_error() const { return (unsigned long)udp_dns_er
 int TcpProbe::udp_dns_error_source() const { return (int)udp_dns_error_source_; }
 int TcpProbe::udp_dns_addresses() const { return (int)udp_dns_addresses_; }
 int TcpProbe::dns_path() const { return (int)dns_path_; }
+int TcpProbe::control80_result() const { return (int)control80_result_; }
+unsigned long TcpProbe::control80_error() const { return (unsigned long)control80_error_; }
+int TcpProbe::control80_error_source() const { return (int)control80_error_source_; }
 
 DWORD WINAPI TcpProbe::worker(LPVOID context) {
     static_cast<TcpProbe*>(context)->perform();
@@ -241,7 +248,7 @@ void TcpProbe::perform() {
             : (LONG)source_;
     } else {
         for (int i = 0; i < target_count; ++i) {
-            TestOutcome o = attempt_tcp(targets[i], 6000);
+            TestOutcome o = attempt_tcp(targets[i], 443, 6000);
             xbox_error_ = (LONG)o.error;
             xbox_error_source_ = (LONG)o.source;
             if (o.error == 0) {
@@ -261,7 +268,7 @@ void TcpProbe::perform() {
     {
         IN_ADDR control;
         control.s_addr = inet_addr("1.1.1.1");
-        const TestOutcome o = attempt_tcp(control, 6000);
+        const TestOutcome o = attempt_tcp(control, 443, 6000);
         control_error_ = (LONG)o.error;
         control_error_source_ = (LONG)o.source;
         control_result_ = o.error == 0 ? 1 : 2;
@@ -271,8 +278,26 @@ void TcpProbe::perform() {
         }
     }
 
+    // One additional public TCP test on a different port.
+    // If both 443 and 80 time out, investigate XNet Retail and network path
+    // instead of repeatedly changing DNS settings.
     stage_ = 7;
-    if (xbox_result_ == 1 || control_result_ == 1) {
+    {
+        IN_ADDR control;
+        control.s_addr = inet_addr("1.1.1.1");
+        const TestOutcome o = attempt_tcp(control, 80, 6000);
+        control80_error_ = (LONG)o.error;
+        control80_error_source_ = (LONG)o.source;
+        control80_result_ = o.error == 0 ? 1 : 2;
+        if (o.error != 0) {
+            error_ = (LONG)o.error;
+            source_ = (LONG)o.source;
+        }
+    }
+
+    stage_ = 8;
+    if (xbox_result_ == 1 || control_result_ == 1 ||
+        control80_result_ == 1) {
         error_ = 0;
         source_ = NONE;
         state_ = CONNECTED;

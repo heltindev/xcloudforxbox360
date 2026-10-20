@@ -2,10 +2,13 @@
 
 namespace platform {
 
+// Edge-triggered controller buttons, aggregated across Xbox 360 ports 0..3.
 struct InputState {
     bool a_pressed;
     bool b_pressed;
     bool back_pressed;
+    bool x_pressed;
+    bool y_pressed;
 };
 
 bool initialize();
@@ -19,4 +22,3 @@ void present();
 void debug_log(const char* message);
 
 } // namespace platform
-

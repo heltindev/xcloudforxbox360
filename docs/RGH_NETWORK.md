@@ -1,39 +1,56 @@
-# Rede nativa no Xbox 360 RGH 3 — diagnóstico v0.9
+# Xbox 360 RGH/RGH 3 network investigation
 
-## Alvo
-Testar acesso real a redes públicas a partir do **Xbox 360 RGH 3**, com as funções XNet/Winsock do SDK do próprio console. O teste **não autentica na Microsoft, não negocia HTTPS/TLS e não abre Fortnite**.
+This is a **network diagnostic**, not a cloud streaming client.
 
-## O aplicativo testa
-- `XNetStartup` e `WSAStartup`.
-- `XNetDnsLookup("www.xbox.com")`, usando a configuração de rede do Xbox 360.
-- **Somente se o DNS XNet falhar**, uma consulta DNS UDP A pela porta 53 em `8.8.8.8`; em caso de falha, tenta `8.8.4.4`. Isso **não altera os DNS** da dashboard.
-- Conexão TCP com os IPs obtidos para `www.xbox.com:443` (até três endereços) e controle independente para `1.1.1.1:443`.
-- Tempo limite por tentativa TCP de até seis segundos; o teste pode durar vários segundos.
+## Last owner-reported RGH test — 2026-10-20
 
-## Interpretação de falhas
-
-| Resultado no Xbox 360 | Significado |
+| Probe | Result |
 | --- | --- |
-| DNS XNet retorna endereço IPv4 | O resolvedor padrão do console respondeu |
-| DNS UDP retorna endereço IPv4 | Consulta DNS pública por UDP funcionou no RGH |
-| DNS UDP erro `10060` na fase `3` | Resposta UDP não chegou dentro do prazo |
-| TCP erro `10060` | `connect` esgotou o prazo — não significa erro de OAuth |
-| TCP IP direto OK, `xbox.com` falha | Possível problema DNS, destino ou rota |
-| Ambos os destinos TCP falham | Investigar saída TCP e regras/limites do XNet Retail |
-| Ambos TCP OK | É possível criar sockets TCP; **não** comprova HTTPS ou xCloud |
+| Xbox XNet DNS | **1 IPv4 address** |
+| Xbox.com:443 | **10060**, source **8** |
+| 1.1.1.1:443 direct IP | **10060**, source **8** |
+| Google DNS over UDP | No result supplied for this hardware run |
+| 1.1.1.1:80 | Source prepared, RGH result still missing |
 
-Origem no programa: `1` inicializar XNet, `2` inicializar Winsock, `3` chamada DNS XNet, `4` estado DNS XNet, `5` criar socket, `6` modo não bloqueante, `7` connect, `8` select, `9` verificar conexão, `10` thread; `11–15` representam fases do DNS UDP. Fases UDP: `1` socket, `2` envio, `3` espera, `4` recebimento, `5` validação.
+**Error 10060** is a TCP connection timeout; **source 8** maps to `TcpProbe::TCP_SELECT` in the project's source. DNS did resolve a hostname. No TLS, OAuth or xCloud request was made.
 
-## Observação anterior
-Um teste na versão antiga do XEX deu `10060` na etapa de conexão TCP no Xbox 360 real. O DNS do console estava automático, com `181.213.132.2` informado anteriormente; foi proposta troca manual para `8.8.8.8 / 8.8.4.4`. Ainda **não temos o diagnóstico v0.9 executado no hardware real**.
+Potential explanations: XNet Retail security or socket restrictions, IP route, firewall/NAT behavior or platform-specific socket initialization. None is proven. DNS switching alone is not a verified solution.
 
-## Limitação do XNet Retail
-A flag `XNET_STARTUP_BYPASS_SECURITY` é voltada ao desenvolvimento; em bibliotecas retail, pode ser ignorada. Consequentemente, mesmo o console sendo RGH, os sockets XDK podem ser limitados e os testes podem falhar. Se isso se confirmar no RGH, uma opção de pesquisa é testar **XeLL Reloaded/libxenon** e a sua pilha de rede independente (lwIP), como explicado em [XELL_ALTERNATIVE.md](XELL_ALTERNATIVE.md). É outro ambiente e ainda não possui um build deste cliente.
+## Network diagnostic source
 
-## Próximos marcos
-1. Confirmar no Xbox 360 físico os testes DNS XNet, DNS UDP e TCP por IP.
-2. Verificar possibilidades reais de saída UDP/TCP da pilha de rede no console.
-3. Somente após transporte externo confiável, estudar TLS moderno **com validação de certificados**.
-4. Então estudar OAuth Microsoft autorizado e negociação de sessão xCloud.
+- `XNetStartup` / `WSAStartup` initialization.
+- `XNetDnsLookup("www.xbox.com")` uses the console's existing network settings.
+- Optional fallback UDP DNS query to `8.8.8.8:53`, followed by `8.8.4.4:53` if necessary. The program does not change the dashboard's DNS settings.
+- TCP connection to a resolved `www.xbox.com` IPv4 address, port 443.
+- Direct TCP connection to `1.1.1.1` on **port 443** and **port 80** as independent comparison tests.
+- Each TCP attempt has a deadline. An open TCP connection does **not** prove TLS/HTTPS support or xCloud access.
 
-Nenhuma credencial Microsoft é lida, armazenada ou enviada pelo diagnóstico.
+## Error source codes
+
+| Code | Internal stage |
+| --- | --- |
+| 1 | XNet startup |
+| 2 | Winsock startup |
+| 3 | DNS API call |
+| 4 | DNS status/result |
+| 5 | Socket creation |
+| 6 | Nonblocking socket setup |
+| 7 | TCP connect call |
+| **8** | **TCP select/wait for connect completion** |
+| 9 | TCP socket result |
+| 10 | Worker thread creation |
+| 11–15 | UDP DNS phases |
+
+### What to validate next on real RGH
+
+1. Ensure the interface has a local IP address, subnet, gateway and working DNS.
+2. Compare TCP port 80 vs 443, noting exact error, source and elapsed time.
+3. Confirm UDP send/receive behavior with a test endpoint the developer is authorized to use.
+4. Check whether Retail XNet allows outbound arbitrary TCP/UDP in a homebrew title.
+5. If XNet blocks traffic, compile and run the separate libxenon/XeLL boot experiment, then implement a test using the exact available lwIP version.
+
+The diagnostic screen is optional: press **X** from the home screen. No test is started automatically at launch.
+
+**Safety:** never send credentials before validated HTTPS is available, and do not bypass TLS certificate verification.
+
+See [the dated report](TESTE_RGH3_2026-10-20.md) and [the research references](REFERENCES.md).

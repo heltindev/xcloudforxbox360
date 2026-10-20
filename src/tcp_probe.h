@@ -34,6 +34,9 @@ public:
     int udp_dns_error_source() const;
     int udp_dns_addresses() const;
     int dns_path() const; // 0 unavailable, 1 Xbox XNet, 2 Google UDP
+    int control80_result() const;
+    unsigned long control80_error() const;
+    int control80_error_source() const;
 private:
     static DWORD WINAPI worker(LPVOID context);
     void perform();
@@ -56,4 +59,7 @@ private:
     volatile LONG udp_dns_error_source_;
     volatile LONG udp_dns_addresses_;
     volatile LONG dns_path_;
+    volatile LONG control80_result_;
+    volatile LONG control80_error_;
+    volatile LONG control80_error_source_;
 };

@@ -1,99 +1,140 @@
-# XCloud360 — Xbox Cloud Gaming no Xbox 360 (PowerPC / RGH3)
+# XCloud360 — Xbox Cloud Gaming on Xbox 360 (PowerPC / RGH 3)
 
-> **Status: protótipo experimental v0.9.** Executável homebrew `.xex` nativo para o Xbox 360 desbloqueado (RGH/RGH 3). **Não executa Fortnite e não se conecta a sessões do xCloud nesta versão.** Não é afiliado à Microsoft, Xbox ou Epic Games.
+**An experimental, independent Xbox 360 homebrew project.**
 
-## Objetivo
+> [!WARNING]
+> **This is NOT a working Xbox Cloud Gaming client. Fortnite is NOT playable.**
+> No Microsoft sign-in, valid cloud session, WebRTC media negotiation or real-time game decoding is implemented.
+> The latest source changes have **not yet been compiled or tested on real hardware**.
 
-Desenvolver um cliente Xbox Cloud Gaming que rode **diretamente no processador Xenon (PowerPC) do Xbox 360**, sem usar PC intermediário. O console deverá autenticar a conta de maneira autorizada, estabelecer uma sessão de streaming, receber vídeo/áudio e enviar entradas do controle.
+## Mission
 
-A implementação atual comprova a compilação de um aplicativo PowerPC para RGH, desenha uma interface e realiza **diagnósticos de DNS, UDP e TCP**. Não existe navegador web, OAuth, TLS moderno ou WebRTC funcional.
+Build a native Xbox Cloud Gaming client for the **Xbox 360 Xenon PowerPC**, with the console receiving game video/audio and sending controller input **directly to the cloud**, without an intermediary PC.
 
-## Lista completa do que falta
+**Current release status:** Xbox 360 C++/XDK/XEX prototype with UI, controller support, protocol parser experiments and optional TCP/UDP network diagnostics. Development and runtime testing target **only the real Xbox 360 RGH/RGH 3**. XeLL/libxenon is a separate experimental option, not part of the XEX build.
 
-- **[STATUS_DO_PROJETO.md](STATUS_DO_PROJETO.md)** — estado real de cada módulo: funcionando, código parcial ou ainda não implementado.
-- **[ROADMAP.md](ROADMAP.md)** — checklist detalhado de todas as tarefas para xCloud/Fortnite, dependências e testes.
-- **[Relatório do RGH 3 — 20/10/2026](docs/TESTE_RGH3_2026-10-20.md)** — DNS Xbox 1 IP; TCP Xbox.com:443 e 1.1.1.1:443 expiraram com erro 10060, origem 8.
+## What has been verified on the RGH
 
-> **Atenção:** esta pasta GitHub-Source é uma cópia de código-fonte anterior às alterações da raiz principal. A lista foi sincronizada, mas o código `src/` nesta pasta **não contém todos os módulos novos**. Não publique como uma versão v0.10 completa antes de sincronizar os arquivos de código. As falhas de TCP continuam sem solução.
+| Test | Real Xbox 360 result |
+| --- | --- |
+| Xbox DNS lookup | **1 IPv4 address resolved** |
+| TCP Xbox.com port 443 | **Error 10060**, source **8** (`TCP_SELECT`) |
+| Direct TCP 1.1.1.1 port 443 | **Error 10060**, source **8** (`TCP_SELECT`) |
+| Direct TCP 1.1.1.1 port 80 | New optional test; **no RGH result yet** |
+| Modern TLS / OAuth / WebRTC / Fortnite | **Not implemented** |
 
-## Estado real dos componentes
+The Xbox DNS resolved a hostname correctly, but outbound TCP connections **timed out**. It is not known whether XNet Retail restrictions, routing or another network limitation caused the failure. Changing DNS alone is not a proven fix. **No cloud connection has been established.**
 
-| Componente | Estado | Próxima validação |
-| --- | --- | --- |
-| C++/PowerPC e formato `.xex` Retail | Implementado, build verificado | Executar build atual no RGH físico |
-| Interface Direct3D / controle Xbox 360 | Implementado | Verificar fonte e entradas no console |
-| DNS via XNet | Implementado como diagnóstico | Confirmar resposta do DNS configurado no Xbox |
-| DNS UDP via 8.8.8.8 / 8.8.4.4 | Implementado como fallback experimental | Verificar se recebe pacotes no RGH |
-| TCP porta 443 | Diagnóstico implementado | Investigar timeout `10060` no RGH |
-| Transporte UDP/TCP sem restrições | **Não demonstrado** | Avaliar limites do XNet Retail e alternativa XeLL/libxenon |
-| TLS moderno e validação de certificados | **Não implementado** | Selecionar biblioteca TLS portada para PowerPC |
-| Microsoft OAuth Device Code / QR | **Não implementado** | Registrar app autorizado e confirmar suporte do serviço |
-| Autorização para sessões xCloud | **Não implementado** | Investigar API e termos aplicáveis |
-| WebRTC (ICE/DTLS/SRTP/data channel) | **Não implementado** | Portar/implementar protocolos e testar no hardware |
-| Decodificação H.264/áudio em tempo real | **Não implementado** | Validar APIs e desempenho do Xbox 360 |
-| Fortnite jogável pela nuvem | **Não disponível** | Depende de todos os módulos anteriores |
+See [the complete status report](STATUS_DO_PROJETO.md) and [the dated RGH test](docs/TESTE_RGH3_2026-10-20.md).
 
-## Estrutura do repositório
+## Xbox 360 UI
+
+Inspired by Xbox dashboard conventions and [xbox_launcher](https://github.com/LuanRoger/xbox_launcher): fullscreen, dark panels, Xbox green accents and controller-first navigation. No artwork or code from other projects was copied.
+
+| Controller | Action |
+| --- | --- |
+| **A** | View the roadmap; repeat a test only when inside the diagnostic screen |
+| **Y** | Show Fortnite availability and missing dependencies |
+| **X** | Start **optional** network diagnostics |
+| **B** | Return to the home screen |
+| **BACK** | Exit the homebrew application |
+
+**The network diagnostic is not required to open the app.** However, a working network transport will ultimately be required to stream any cloud game.
+
+## Feature status
+
+| Feature | Status |
+| --- | --- |
+| Xbox 360 PowerPC target and older Retail XEX builds | Implemented; older build verified |
+| Direct3D interface and controller navigation | Implemented; latest update needs RGH validation |
+| Font embedded in the XEX with bitmap fallback | Source prepared; latest build needs RGH validation |
+| DNS, UDP and TCP 80/443 diagnostics | Implemented as probes, **external TCP currently fails on RGH** |
+| Local HTTP/JSON/OAuth device-response parsers | Experimental, **offline only** |
+| RTP parsing and H.264 NAL scanning | Experimental, **not WebRTC/decoding** |
+| Microsoft OAuth sign-in and QR code | Not implemented |
+| Verified HTTPS/TLS | Not implemented |
+| xCloud session discovery and Fortnite launch | Not implemented |
+| WebRTC/DTLS/SRTP and cloud controller transport | Not implemented |
+| Video/audio codec decoders and renderers | Not implemented |
+| Playable Fortnite on Xbox 360 | **Unavailable** |
+
+Full step-by-step development list: **[ROADMAP.md](ROADMAP.md)**.
+
+## Directory layout
 
 ```text
 XCLOUDFORXBOX360/
-├── src/                        # Código C++ nativo para PowerPC Xbox 360
+├── src/                        # PowerPC C++, UI, network probes and protocol parsers
 ├── docs/
-│   ├── POWERPC.md              # Arquitetura e requisitos
-│   ├── RGH_NETWORK.md          # Diagnósticos de rede e erros
-│   ├── XELL_ALTERNATIVE.md     # Alternativa via XeLL/libxenon
+│   ├── REFERENCES.md           # Native-console references and license research
+│   ├── POWERPC.md              # Xenon architecture and streaming design
+│   ├── RGH_NETWORK.md          # RGH diagnostic results and error sources
+│   ├── TESTE_RGH3_2026-10-20.md
+│   ├── XELL_ALTERNATIVE.md
 │   └── fortnite-architecture.md
+├── experimental_xell/          # Isolated boot-only libxenon example (no ELF built)
+├── ROADMAP.md                  # Full milestone checklist
+├── STATUS_DO_PROJETO.md        # Verified / unverified / missing features
+├── embed_font.ps1              # Locally generated font data linked into XEX
+├── build_release.ps1           # Owner-run build, Retail XEX, no ZIP
 ├── XCLOUDFORXBOX360.sln
 ├── XCloud360.vcxproj
-├── build_release.ps1           # Gera .xex Retail e pacote para RGH
-├── package_github.ps1          # Cria ZIP somente com fontes e documentação
-├── .gitignore
 └── README.md
 ```
 
-**Não publique** executáveis proprietários do SDK, a pasta `tools/`, arquivos `.xpr` do XDK, `obj/`, `bin/`, `Release/` ou `dist/`. O ZIP de código-fonte é gerado separadamente do ZIP para instalar no console.
+## Building for the Xbox 360 RGH
 
-## Pré-requisitos de compilação
+Prerequisites on the **developer's computer**:
 
-- Windows com Xbox 360 SDK/XDK e compilador Xbox 360 para PowerPC, usados com a devida autorização.
-- MSBuild compatível e variável de ambiente `XEDK` configurada.
-- [XexTool](https://github.com/Team-Resurgent/XexTool/releases), instalado **localmente** em `tools/xextool/XexTool-windows-x64/XexTool.exe`; não incluído no repositório.
-- Bundler e recursos de fonte instalados no próprio XDK. A compilação gera localmente a fonte `.xpr`; o código mantém um fallback bitmap se a fonte externa não carregar.
+- Authorized Xbox 360 SDK/XDK and compatible Visual Studio/MSBuild with the `XEDK` environment variable configured.
+- XexTool installed **locally**, not committed to the public repository.
+- SDK font sources and Bundler, used to generate the internal font privately.
+- A real RGH/RGH 3 Xbox 360 for testing.
 
-### Compilar para RGH 3
-
-Abra PowerShell na pasta do projeto:
+Run, in the root project directory:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build_release.ps1
 ```
 
-O script gera um `.xex` **Retail** em `Release/XCloud360.xex`, um pacote em `dist/` e `XCloud360-RGH3.zip`.
+The intended output is **`Release\XCloud360.xex`**, in Retail-compatible format. The script generates the font C++ translation unit locally and aims to link the smooth font inside the XEX, with a bitmap font fallback.
 
-### Instalar e testar no Xbox 360 físico
+> [!NOTE]
+> The project owner handles builds and physical-console testing. Recent changes are **uncompiled**. Please report the **first compiler/linker error** with its file and line if a build fails. No ZIP, external font folder or second distribution directory is required by the intended workflow.
 
-1. Extraia **`XCloud360-RGH3.zip`** para HD ou USB do Xbox 360.
-2. Mantenha `XCloud360.xex` e `Media/Fonts/SegoeUI_24.xpr` na estrutura original; a fonte bitmap embutida é um fallback.
-3. Inicie o `.xex` pelo Aurora ou XeXMenu.
-4. Pressione **A** para testar a rede, **B** para voltar e **BACK** para sair.
-5. Registre **DNS Xbox, DNS UDP, ERRO XBOX, ERRO IP, ETAPA e ORIGEM**. Os resultados mais importantes são os obtidos no **console real**.
+Copy the generated XEX to the console and launch through Aurora or XeXMenu. The optional network test is available by pressing **X**.
 
-**DNS:** o Xbox pode usar DNS automático ou os endereços manuais `8.8.8.8` / `8.8.4.4`. O aplicativo **não altera as configurações do console**. O fallback UDP consulta esses endereços como teste somente quando o resolvedor XNet falha.
+## How we intend to reach Fortnite
 
-**Histórico observado no console:** uma versão anterior retornou `10060` (timeout na tentativa TCP). Isso não demonstra falta de internet nem garante que trocar DNS resolverá. O XNet Retail pode impor restrições a destinos externos.
+1. **Prove outbound TCP and bidirectional UDP on a real RGH.** Current XNet TCP calls time out.
+2. If XNet Retail limits external networking, evaluate a separate **XeLL/libxenon/lwIP** backend on the actual Xbox 360.
+3. Port modern TLS/DTLS and verify CA certificates and hostnames, with secure entropy and correct clock.
+4. Build authorized OAuth Device Code sign-in and verify whether an independent client can access the Xbox Cloud Gaming service.
+5. Implement permitted session/entitlement discovery and start an authorized Fortnite session.
+6. Implement the **actual negotiated** WebRTC signaling, ICE, DTLS/SRTP, RTP/RTCP and controller channels.
+7. Decode audio/video and render using Xbox 360 resources while staying within its CPU and 512 MB shared memory limits.
+8. Measure video frame rate and controller latency, stabilize reconnection, and demonstrate legitimate interactive gameplay.
 
-A explicação das etapas e possíveis erros está em [docs/RGH_NETWORK.md](docs/RGH_NETWORK.md).
+**These steps have not been completed.** There is no guarantee that the current streaming APIs, access rights and hardware capabilities will make direct xCloud gameplay feasible.
 
-## O que falta para conectar ao xCloud de verdade
+## Research references
 
-**Primeiro:** validar acesso de rede do Xbox 360 RGH a servidores externos, incluindo DNS, TCP e UDP. **Depois:** TLS moderno com verificação de certificado e hostname (nunca desativar essa segurança), OAuth autorizado sem senha em TXT, negociação de sessão e protocolos WebRTC, decodificação de áudio/vídeo e envio dos controles. Mesmo com o login Microsoft funcionando, o acesso ao streaming não está garantido; dependerá das APIs/autorizações do serviço e da viabilidade técnica no hardware.
+The five community projects below were reviewed as **references**, not copied source:
 
-Se XNet Retail impedir rede externa, a rota de pesquisa é **XeLL Reloaded/libxenon com lwIP**, que exigirá outra cadeia de compilação e produzirá ELF em vez de XEX. Não é necessário modificar NAND ou atualizar XeLL para simplesmente avaliar esta alternativa. Veja [docs/XELL_ALTERNATIVE.md](docs/XELL_ALTERNATIVE.md).
+- [XStreamingDesktop](https://github.com/Geocld/XStreamingDesktop) — desktop xCloud/remote-streaming architecture, controller/rumble UX.
+- [XCTV Player](https://github.com/kjbaker-uk/xctvplayer) — gamepad-first fullscreen Google TV experience; relies on Android/WebView technology unavailable on Xbox 360.
+- [xbox_launcher](https://github.com/LuanRoger/xbox_launcher) — Xbox Series-inspired dashboard design; implemented using Flutter and Windows WebView2.
+- [XCloud4](https://github.com/asp11edgr/XCloud4) — PS4 native approach; device-code authentication and streaming architecture.
+- [GR33N](https://github.com/actuallyniaxx/GR33N) — PS3 native xCloud client; especially relevant for endianness and ports of mbedTLS, libSRTP, usrsctp, libpeer and fixed-point Opus.
 
-Referências: [Greenlight](https://github.com/unknownskl/greenlight) (pesquisa de protocolos, não port direto para PowerPC), [Better xCloud](https://github.com/redphx/better-xcloud), [libxenon](https://github.com/Free60Project/libxenon).
+Research notes, architecture comparisons and **license obligations**: [docs/REFERENCES.md](docs/REFERENCES.md).
 
-## Colaborar
+## Security, source ownership and licensing
 
-Issues e pull requests sobre **PowerPC, rede RGH, TLS, autenticação autorizada e vídeo** são bem-vindos. Informe a versão do XEX, se o teste ocorreu no Xbox 360 físico, erro e etapa. Não publique credenciais, tokens, executáveis de SDK, arquivos de firmware ou conteúdo de jogos.
+- Do not enter Microsoft passwords into TXT files or the application. A valid Device Code screen must use **Microsoft's own authorized sign-in flow**.
+- Do not disable TLS certificate verification or hardcode another app's credentials/registration identifiers.
+- Do not commit tokens, refresh tokens, SDK binaries, Microsoft XPR/font resources, generated font C++ bytes, CPU keys, key vaults or proprietary game files.
+- GR33N and XCloud4 are GPLv3 projects, XCTV Player is GPLv2, XStreamingDesktop is MIT. License compatibility must be assessed before copying any source code.
+- Choose a license for the original XCloud360 source before redistributing combined/ported code.
 
-A licença do código deve ser escolhida pelo mantenedor antes de redistribuição por terceiros.
+This is an independent homebrew effort and is not affiliated with, endorsed by, or supported by Microsoft, Xbox, Sony or Epic Games.
