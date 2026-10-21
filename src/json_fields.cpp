@@ -105,7 +105,7 @@ bool decode_value(Cursor& c,char* output,size_t cap,
 }
 bool find_field(const char* json,size_t length,const char* name,
                 char* output,size_t cap,unsigned int* number,bool text) {
-    if (!json || !name || length<2 || length>16384) return false;
+    if (!json || !name || length<2 || length>32767) return false;
     Cursor c={json,json+length};
     space(c);
     if(c.p>=c.end || *c.p++!='{') return false;

@@ -9,6 +9,13 @@ struct InputState {
     bool back_pressed;
     bool x_pressed;
     bool y_pressed;
+    bool up_pressed;
+    bool down_pressed;
+    bool left_pressed;
+    bool right_pressed;
+    bool lb_pressed;
+    bool rb_pressed;
+    bool start_pressed;
 };
 
 bool initialize();

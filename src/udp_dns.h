@@ -11,6 +11,7 @@ struct UdpDnsResult {
     int address_count;
     IN_ADDR addresses[3];
     unsigned long server; // IP address in network byte order
+    int transport; // 0 unknown, 1 UDP/53, 2 TCP/53
 };
 
 UdpDnsResult udp_dns_lookup_google(const char* host);

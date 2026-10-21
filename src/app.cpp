@@ -1,211 +1,326 @@
 #include "app.h"
 #include "platform.h"
 #include "protocol_selftest.h"
-#include "controller_input.h"
+#include "region_catalog.h"
+#include "xbox_live_auth.h"
+#include "harissa_style_ui.h"
+#include "../auth_config.h"
 #include <xtl.h>
 #include <stdio.h>
+#include <string.h>
 
 namespace {
-const unsigned int WHITE = 0xFFF6F9FC;
-const unsigned int MUTED = 0xFFB8C7D8;
-const unsigned int GREEN = 0xFF107C10;
-const unsigned int LIME = 0xFF6CDB78;
-const unsigned int AMBER = 0xFFFFC06E;
-const unsigned int RED = 0xFFFF7C7C;
-const unsigned int PANEL = 0xFF172332;
-const unsigned int TILE = 0xFF213346;
-
-void text(float x, float y, float size, unsigned int color, const char* str) {
-    platform::draw_text(x, y, size, color, str);
+const unsigned int BG=0xFF060C0A;
+const unsigned int PANEL=0xFF101B15;
+const unsigned int BORDER=0xFF24422F;
+const unsigned int BRIGHT=0xFF6AE99B;
+const unsigned int WHITE=0xFFE2F4E6;
+const unsigned int DIM=0xFF9AB2A1;
+const unsigned int WARN=0xFFFFC679;
+const unsigned int BAD=0xFFFF8888;
+const char* const FORTNITE_URL=
+    "https://play.xbox.com/products/BT5P2X999VH2/fortnite";
+const char* const LEGACY_LINK=
+    "https://login.live.com/oauth20_remoteconnect.srf";
+void line(float x,float y,float scale,unsigned int color,const char* value){
+    platform::draw_text(x,y,scale,color,value);
 }
-void tile(float x,float y,float w,float h,unsigned int color) {
-    platform::draw_rect(x,y,w,h,color);
-}
-void bar(float x,float y,float w,unsigned int accent) {
-    tile(x,y,w,6,accent);
-}
-void line(float y) {
-    tile(54,y,1172,2,0xFF344653);
-}
-void footer(const char* message) {
-    text(70,651,1.11f,MUTED,message);
-}
-const char* status_name(int state) {
-    if (state == 1) return "CONECTOU";
-    if (state == 2) return "FALHOU";
-    return "PENDENTE";
+void rule(float x,float y,float width) {
+    platform::draw_rect(x,y,width,2,BORDER);
 }
 }
 
-App::App():running_(false),protocol_ok_(false),screen_(SCREEN_HOME) {}
-
-bool App::initialize() {
-    if(!platform::initialize()) return false;
+App::App()
+    : screen_(HOME),running_(false),tests_ok_(false),flow_started_(false),
+      login_launched_(false),progress_percent_(0),tests_run_(0),
+      network_previous_(-1),account_previous_(-1),line_count_(0) {
+    memset(history_,0,sizeof(history_));
+}
+void App::log(const char* message){
+    if(!message)return;
+    if(line_count_>=LOG_LINES){
+        for(int i=1;i<LOG_LINES;++i)
+            memcpy(history_[i-1],history_[i],LINE_CAP);
+        line_count_=LOG_LINES-1;
+    }
+    strncpy_s(history_[line_count_],LINE_CAP,message,_TRUNCATE);
+    ++line_count_;
+    // No device/user code, password, account token or client ID in logs.
+    char message_debug[200];
+    sprintf_s(message_debug,sizeof(message_debug),"[XCLOUD360] %s\n",message);
+    platform::debug_log(message_debug);
+}
+void App::log_step(int index,int percentage,const char* what){
+    if(percentage>progress_percent_)progress_percent_=percentage;
+    char message[LINE_CAP];
+    sprintf_s(message,sizeof(message),"%d. [%d%%] %s",index,percentage,what);
+    log(message);
+}
+bool App::initialize(){
+    if(!platform::initialize())return false;
     running_=true;
-    screen_=SCREEN_HOME;
-    protocol_ok_=protocol_selftest();
-    if(!protocol_ok_)
-        platform::debug_log("[XCloud360] Offline parsers FAIL.\n");
-    else
-        platform::debug_log("[XCloud360] Offline parsers OK.\n");
-    platform::debug_log("[XCloud360] RGH native UI ready. No automatic network or login.\n");
+    screen_=HOME;
+    run_offline_tests();
     return true;
 }
+void App::run_offline_tests(){
+    ++tests_run_;
+    const bool protocol=protocol_selftest();
+    const bool json=region_catalog::offline_selftest();
+    tests_ok_=protocol && json;
+    char status[LINE_CAP];
+    sprintf_s(status,sizeof(status),"SELFTEST %u: PROTOCOL=%s JSON=%s",
+              tests_run_,protocol?"PASS":"FAIL",json?"PASS":"FAIL");
+    log(status);
+}
+void App::start_fortnite(){
+    screen_=LOGIN; // HOME -> dedicated sign-in page, never a web redirect
+    XboxAccount::Snapshot account=account_.snapshot();
+    if(account.state==XboxAccount::WAITING_FOR_USER ||
+       account.state==XboxAccount::STARTING ||
+       account.state==XboxAccount::XBOX_EXCHANGING){
+        log("5. LOGIN IN PROGRESS - CODE REMAINS ON SCREEN.");
+        return;
+    }
+    if(flow_started_ && probe_.state()==TcpProbe::RUNNING){
+        log("3. WAITING FOR NETWORK TEST.");
+        return;
+    }
+    flow_started_=true;
+    login_launched_=false;
+    progress_percent_=0;
+    account_previous_=-1;
+    network_previous_=-1;
+    line_count_=0;
+    log_step(1,10,"FORTNITE SELECTED - PREPARING AUTHENTICATION");
+    log_step(2,15,"CHECKING LOCAL PROTOCOLS");
+    run_offline_tests();
+    if(!tests_ok_){
+        log("2. FAILED: PROTOCOL SELFTEST - CHECK NATIVE XEX");
+        flow_started_=false;
+        return;
+    }
+    log_step(2,20,"OFFLINE PROTOCOLS VERIFIED");
+    log_step(3,25,"TESTING XNET / DNS / TCP...");
+    if(probe_.state()!=TcpProbe::RUNNING && !probe_.start()){
+        log("3. NETWORK DIAGNOSTIC COULD NOT START");
+        flow_started_=false;
+    }
+}
+const char* App::network_status() const {
+    if(probe_.state()==TcpProbe::RUNNING)return "NETWORK DIAGNOSTIC RUNNING";
+    if(probe_.state()==TcpProbe::CONNECTED)
+        return probe_.control80_result()==1?
+            "HTTP/80 RESPONSE VERIFIED; HTTPS SEPARATE":
+            "TCP CHECK ONLY; HTTPS NOT VERIFIED";
+    if(probe_.state()==TcpProbe::FAILED)return "NETWORK DIAGNOSTIC FAILED";
+    return "NETWORK NOT CHECKED";
+}
+const char* App::activity_status(){
+    const XboxAccount::Snapshot auth=account_.snapshot();
+    switch(auth.state){
+    case XboxAccount::WAITING_FOR_USER:return "ENTER THE CODE ON ANOTHER DEVICE";
+    case XboxAccount::XBOX_EXCHANGING:return "VERIFYING XBOX USER / XSTS OVER HTTPS";
+    case XboxAccount::STARTING:return "REQUESTING THE MICROSOFT CODE";
+    case XboxAccount::ACCOUNT_AUTHORIZED:return "MICROSOFT LOGIN OK / XCLOUD PENDING";
+    case XboxAccount::LOGIN_FAILED:return "LOGIN FAILED: SEE THE ERROR BELOW";
+    case XboxAccount::NOT_CONFIGURED:return "REGISTER AN OWNED PUBLIC APP ID";
+    case XboxAccount::USER_CANCELLED:return "LOGIN CANCELLED";
+    default:return flow_started_?"FORTNITE SETUP IN PROGRESS":"READY";
+    }
+}
+void App::poll_network(){
+    probe_.update();
+    const int state=(int)probe_.state();
+    if(state==network_previous_)return;
+    network_previous_=state;
+    if(state==TcpProbe::RUNNING){
+        if(!flow_started_)log("NETWORK: MANUAL DIAGNOSTIC.");
+        return;
+    }
+    if(state!=TcpProbe::CONNECTED && state!=TcpProbe::FAILED)return;
+    char summary[LINE_CAP];
+    sprintf_s(summary,sizeof(summary),
+              "NET: XBOX443=%d(%lu) IP443=%d(%lu) HTTP80=%d(%lu)",
+              probe_.xbox_result(),probe_.xbox_error(),
+              probe_.control_result(),probe_.control_error(),
+              probe_.control80_result(),probe_.control80_error());
+    log(summary);
+    sprintf_s(summary,sizeof(summary),
+              "DNS: XNET=%d PATH=%d PUBLIC_IPS=%d",
+              probe_.dns_addresses(),probe_.dns_path(),
+              probe_.udp_dns_addresses());
+    log(summary);
+    if(!flow_started_ || login_launched_)return;
+    const bool dns=probe_.dns_addresses()>0 ||
+                   probe_.udp_dns_addresses()>0;
+    log_step(3,dns?35:30,dns?
+             "DNS RESOLVED - VERIFYING HTTPS SEPARATELY":
+             "DNS FAILED - TLS WILL TRY ITS OWN RESOLVER");
+    login_launched_=true;
+    if(account_.start(XCLOUD360_CLIENT_ID))
+        log_step(4,45,"REQUESTING MICROSOFT DEVICE CODE");
+    else
+        log("4. DEVICE CODE REQUEST UNAVAILABLE - CHECK APP ID");
+}
+void App::poll_account(){
+    const XboxAccount::Snapshot auth=account_.snapshot();
+    if((int)auth.state==account_previous_)return;
+    account_previous_=(int)auth.state;
+    switch(auth.state){
+    case XboxAccount::IDLE:break;
+    case XboxAccount::STARTING:
+        log("4. MICROSOFT HTTPS HANDSHAKE / DEVICE CODE REQUEST");
+        break;
+    case XboxAccount::WAITING_FOR_USER:
+        log_step(5,60,"REAL DEVICE CODE RECEIVED - APPROVE ON PHONE");
+        log("CODE VALID UNTIL MICROSOFT SERVER EXPIRES IT");
+        break;
+    case XboxAccount::XBOX_EXCHANGING:
+        log_step(7,71,"AUTHORIZED XBOX USER / XSTS HTTPS EXCHANGE");
+        break;
+    case XboxAccount::ACCOUNT_AUTHORIZED: {
+        log_step(6,70,"MICROSOFT OAUTH APPROVED");
+        xbox_live_auth::Status capabilities={0};
+        capabilities.microsoft_oauth=true;
+        capabilities.xbox_scope=auth.xbox_scope_verified;
+        capabilities.xbox_user_token=auth.xbox_user_token_verified;
+        capabilities.xsts_token=auth.xsts_token_verified;
+        if(auth.xbox_user_token_verified)
+            log_step(7,75,"VERIFIED XBOX USER TOKEN RECEIVED (CLEARED)");
+        if(auth.xsts_token_verified)
+            log_step(8,80,"VERIFIED XSTS TOKEN RECEIVED (CLEARED)");
+        if(auth.cloud_login_verified)
+            log("XCLOUD SERVICE LOGIN CONFIRMED; NO MEDIA RUNTIME");
+        log("NEXT BLOCKER:");
+        log(xbox_live_auth::gate_text(
+            xbox_live_auth::first_blocker(capabilities)));
+        log("NO XCLOUD STREAM / WEBRTC / DECODER IMPLEMENTED");
+        break;
+    }
+    case XboxAccount::LOGIN_FAILED:
+    case XboxAccount::NOT_CONFIGURED: {
+        char status[LINE_CAP];
+        sprintf_s(status,sizeof(status),"MSA FAILED: %.54s TLS=%d HTTP=%d",
+                  auth.stage,auth.tls_error,auth.http_status);
+        log(status);
+        log("PRESS A TO RETRY. DO NOT ENTER PASSWORD IN THIS APP.");
+        break;
+    }
+    case XboxAccount::USER_CANCELLED:
+        log("MICROSOFT LOGIN CANCELLED");
+        break;
+    default:break;
+    }
+}
 
-int App::run() {
-    while(running_ && platform::pump()) {
-        const platform::InputState in=platform::read_input();
-        probe_.update();
-
-        if(in.back_pressed) running_=false;
-        if(in.b_pressed) screen_=SCREEN_HOME;
-        // X is the only button that can start a network diagnostic.
-        if(in.x_pressed) {
-            screen_=SCREEN_NETWORK;
-            probe_.start();
+void App::draw_home(){
+    gameui::hero(64,150,700,450);
+    gameui::text(818,218,1.85f,gameui::TEXT,"Conectar conta");
+    gameui::text(820,260,1.04f,gameui::MUTED,"Xbox Cloud Gaming");
+    gameui::badge(820,314,180,"EXPERIMENTAL",gameui::ACCENT_HI);
+    gameui::text(820,380,0.98f,gameui::MUTED,"Streaming indisponivel.");
+    gameui::pill(820,454,352,60,gameui::ACCENT);
+    gameui::text(844,471,1.24f,0xFF04220Cu,"A  ENTRAR");
+}
+void App::draw_login(){
+    const XboxAccount::Snapshot auth=account_.snapshot();
+    gameui::box(225,152,830,452,gameui::PANEL,gameui::BORDER);
+    if(auth.state==XboxAccount::WAITING_FOR_USER){
+        gameui::text(270,185,1.65f,gameui::TEXT,"Conectar conta");
+        gameui::text(270,239,1.00f,gameui::MUTED,"No celular, acesse:");
+        gameui::text(270,281,1.16f,gameui::ACCENT_HI,auth.verification_url);
+        gameui::text(270,354,3.30f,gameui::TEXT,auth.user_code);
+        char timer[64];
+        sprintf_s(timer,sizeof(timer),"Expira em %u:%02u",
+                  auth.seconds_left/60,auth.seconds_left%60);
+        gameui::text(270,462,1.00f,gameui::MUTED,timer);
+        gameui::text(270,535,0.95f,gameui::ACCENT_HI,"Aguardando...");
+    } else if(auth.state==XboxAccount::ACCOUNT_AUTHORIZED){
+        gameui::text(270,203,1.85f,gameui::ACCENT_HI,"Conta conectada");
+        gameui::text(270,288,1.12f,gameui::TEXT,"Streaming ainda indisponivel.");
+            const char* status = !auth.xbox_scope_verified ? "Acesso Xbox pendente" :
+            (!auth.xbox_user_token_verified ? "Conta Xbox pendente" :
+            (!auth.xsts_token_verified ? "Autorizacao Xbox pendente" :
+             (auth.cloud_login_verified ? "Login xCloud confirmado" : "Login xCloud pendente")));
+        gameui::badge(270,422,300,status,gameui::MUTED);
+        // Display only non-secret failure diagnostics. OAuth approval alone
+        // must not hide a failed Xbox service exchange behind "connected".
+        if(auth.xbox_scope_verified && !auth.cloud_login_verified) {
+            gameui::text(270,476,0.92f,gameui::FAILURE,auth.stage);
+            char result[112];
+            sprintf_s(result,sizeof(result),"Xbox %d / XSTS %d / Cloud %d / XErr %u",
+                auth.xbox_http_status,auth.xsts_http_status,auth.cloud_http_status,auth.xbox_xerr);
+            gameui::text(270,514,0.90f,gameui::MUTED,result);
         }
-        if(in.y_pressed) screen_=SCREEN_FORTNITE;
-        if(in.a_pressed) {
-            if(screen_==SCREEN_HOME) screen_=SCREEN_ROADMAP;
-            else if(screen_==SCREEN_NETWORK) probe_.start();
-            else if(screen_==SCREEN_FORTNITE) screen_=SCREEN_ROADMAP;
-            else screen_=SCREEN_HOME;
-        }
 
-        render();
+    } else if(auth.state==XboxAccount::LOGIN_FAILED ||
+              auth.state==XboxAccount::NOT_CONFIGURED){
+        gameui::text(270,203,1.75f,gameui::TEXT,"Falha ao conectar");
+        char error[152];
+        sprintf_s(error,sizeof(error),"%.67s  TLS=%d HTTP=%d",
+                  auth.stage,auth.tls_error,auth.http_status);
+        gameui::text(270,296,0.92f,gameui::FAILURE,error);
+        gameui::pill(270,426,350,58,gameui::ACCENT);
+        gameui::text(294,443,1.18f,0xFF04220Cu,"A  TENTAR");
+    } else {
+        gameui::text(270,213,1.80f,gameui::TEXT,
+            auth.state==XboxAccount::XBOX_EXCHANGING ?
+            "Conectando ao Xbox..." :
+            (auth.state==XboxAccount::USER_CANCELLED ?
+             "Login cancelado" : "Conectando a Microsoft..."));
+        gameui::text(270,304,1.04f,gameui::MUTED,
+            auth.state==XboxAccount::USER_CANCELLED ?
+            "A para tentar novamente." : "Aguarde um instante.");
+        gameui::progress(270,438,740,progress_percent_);
+    }
+}
+void App::draw(){
+    platform::clear(5,16,7);
+    gameui::backdrop();
+    gameui::header("","");
+    if(screen_==HOME)draw_home();
+    else draw_login();
+    const XboxAccount::Snapshot account=account_.snapshot();
+    const bool retry=account.state==XboxAccount::LOGIN_FAILED ||
+        account.state==XboxAccount::NOT_CONFIGURED ||
+        account.state==XboxAccount::USER_CANCELLED ||
+        account.state==XboxAccount::ACCOUNT_AUTHORIZED;
+    gameui::footer(screen_==HOME ? "BACK  SAIR" :
+        (retry ? "A  TENTAR       B  VOLTAR       BACK  SAIR" :
+                 "B  VOLTAR       BACK  SAIR"));
+    platform::present();
+}
+int App::run(){
+    while(running_ && platform::pump()){
+        const platform::InputState input=platform::read_input();
+        if(input.back_pressed){
+            account_.cancel();
+            running_=false;
+            break;
+        }
+        if(input.b_pressed && screen_==LOGIN){
+            account_.cancel();
+            flow_started_=false;
+            login_launched_=false;
+            screen_=HOME;
+        }
+        if(input.y_pressed)run_offline_tests();
+        if(input.x_pressed && screen_==LOGIN &&
+           probe_.state()!=TcpProbe::RUNNING){
+            network_previous_=-1;
+            if(!probe_.start())log("NETWORK WORKER START FAILED");
+        }
+        if(input.a_pressed)start_fortnite();
+        poll_network();
+        poll_account();
+        draw();
         Sleep(16);
     }
     return 0;
 }
-void App::render() {
-    platform::clear(10,15,23);
-    tile(0,0,1280,105,0xFF101A28);
-    tile(44,30,43,43,GREEN);
-    text(110,23,2.38f,WHITE,"XCLOUD360");
-    text(890,38,1.13f,MUTED,"XBOX 360  POWERPC  RGH3");
-    line(130);
-    if(screen_==SCREEN_HOME) render_home();
-    else if(screen_==SCREEN_ROADMAP) render_roadmap();
-    else if(screen_==SCREEN_FORTNITE) render_fortnite();
-    else render_network();
-    platform::present();
-}
-
-void App::render_home() {
-    text(64,159,2.37f,WHITE,"XBOX CLOUD GAMING");
-    text(64,213,1.25f,MUTED,"Projeto experimental nativo para o Xbox 360.");
-    tile(64,273,736,298,PANEL);
-    bar(64,273,736,GREEN);
-    text(100,311,1.70f,WHITE,"STATUS DO PROJETO");
-    text(100,356,1.18f,LIME,"POWERPC / INTERFACE: IMPLEMENTADOS");
-    text(100,391,1.18f,AMBER,"REDE EXTERNA: TIMEOUT 10060 NO RGH");
-    text(100,426,1.18f,MUTED,"TLS, OAUTH E STREAMING: PENDENTES");
-    tile(99,479,653,61,GREEN);
-    text(131,489,1.52f,WHITE,"A  VER ETAPAS QUE FALTAM");
-
-    tile(817,273,400,298,TILE);
-    bar(817,273,400,0xFF5A7694);
-    text(846,312,1.53f,WHITE,"FORTNITE");
-    text(846,360,1.13f,AMBER,"NAO JOGAVEL NESTA VERSAO");
-    text(846,412,1.13f,MUTED,"Y  DETALHES DO JOGO");
-    text(846,461,1.13f,MUTED,"X  TESTE DE REDE OPCIONAL");
-    text(846,510,1.10f,protocol_ok_?LIME:RED,
-         protocol_ok_?"PARSERS OFFLINE: OK":"PARSERS OFFLINE: ERRO");
-    footer("A ETAPAS     Y FORTNITE     X REDE     BACK SAIR");
-}
-
-void App::render_roadmap() {
-    text(63,169,2.15f,WHITE,"O QUE FALTA PARA FUNCIONAR");
-    text(63,218,1.15f,MUTED,"Ordem de dependencias - nenhum recurso e declarado pronto sem teste.");
-    tile(61,274,1157,321,PANEL);
-    bar(61,274,1157,GREEN);
-    const char* rows[] = {
-        "01  Rede TCP/UDP no RGH                    BLOQUEADA 10060",
-        "02  HTTPS/TLS + certificados             NAO IMPLEMENTADO",
-        "03  Conta Microsoft / OAuth autorizado   NAO IMPLEMENTADO",
-        "04  Sessao Fortnite nos servidores       NAO IMPLEMENTADO",
-        "05  WebRTC e recebimento de midia         NAO IMPLEMENTADO",
-        "06  Decoder H264 / audio + controles     NAO IMPLEMENTADO"
-    };
-    for(int i=0;i<6;++i) {
-        text(92,301+i*47,1.22f,i==0?AMBER:MUTED,rows[i]);
-    }
-    footer("A INICIO     Y FORTNITE     X REDE     B VOLTAR     BACK SAIR");
-}
-
-void App::render_fortnite() {
-    text(63,169,2.36f,WHITE,"FORTNITE");
-    text(63,223,1.23f,AMBER,"JOGO INDISPONIVEL: AINDA NAO EXISTE SESSAO XCLOUD");
-    tile(63,291,1155,288,PANEL);
-    bar(63,291,1155,0xFF456789);
-    text(98,321,1.33f,WHITE,"POR QUE AINDA NAO ABRE?");
-    text(98,371,1.14f,MUTED,"O servidor precisa autenticar a conta e aceitar uma sessao.");
-    text(98,413,1.14f,MUTED,"O console precisa negociar streaming, receber video e audio.");
-    text(98,455,1.14f,MUTED,"Os comandos do controle precisam chegar ao jogo remoto.");
-    text(98,513,1.18f,AMBER,"NENHUM JOGO FOI INICIADO. NENHUMA SENHA FOI ENVIADA.");
-    footer("A VER ETAPAS     X TESTE DE REDE     B VOLTAR     BACK SAIR");
-}
-
-void App::render_network() {
-    char buf[180];
-    const TcpProbe::State state=probe_.state();
-    text(64,154,2.14f,WHITE,"DIAGNOSTICO DE REDE (OPCIONAL)");
-    if(state==TcpProbe::RUNNING)
-        text(64,214,1.22f,AMBER,"Consultando DNS e testando TCP...");
-    else if(state==TcpProbe::CONNECTED)
-        text(64,214,1.22f,LIME,"TCP respondeu. HTTPS e xCloud ainda nao foram testados.");
-    else if(state==TcpProbe::FAILED)
-        text(64,214,1.22f,AMBER,"Nenhuma conexao externa foi confirmada.");
-    else
-        text(64,214,1.22f,MUTED,"Pressione A para iniciar.");
-
-    tile(62,269,560,318,PANEL);
-    tile(644,269,573,318,TILE);
-    bar(62,269,560,GREEN);
-    bar(644,269,573,0xFF58789B);
-    text(87,292,1.42f,WHITE,"XBOX.COM :443");
-    text(668,292,1.42f,WHITE,"1.1.1.1  TCP 443 E TCP 80");
-    sprintf_s(buf,sizeof(buf),"DNS Xbox: %d IP(s)",probe_.dns_addresses());
-    text(86,335,1.16f,MUTED,buf);
-
-    if(probe_.udp_dns_state()==1) {
-        sprintf_s(buf,sizeof(buf),"DNS UDP: %d IP(s)",probe_.udp_dns_addresses());
-        text(86,371,1.08f,LIME,buf);
-    } else if(probe_.udp_dns_state()==2) {
-        sprintf_s(buf,sizeof(buf),"DNS UDP erro %lu (fase %d)",
-                  probe_.udp_dns_error(),probe_.udp_dns_error_source());
-        text(86,371,1.08f,AMBER,buf);
-    } else text(86,371,1.08f,MUTED,"DNS UDP: nao solicitado");
-
-    text(86,412,1.34f,probe_.xbox_result()==1?LIME:AMBER,
-         status_name(probe_.xbox_result()));
-    if(probe_.xbox_result()==2) {
-        sprintf_s(buf,sizeof(buf),"ERRO %lu / ORIGEM %d",
-                  probe_.xbox_error(),probe_.xbox_error_source());
-        text(86,461,1.10f,MUTED,buf);
-    }
-
-    sprintf_s(buf,sizeof(buf),"TCP 443: %s",status_name(probe_.control_result()));
-    text(669,344,1.26f,probe_.control_result()==1?LIME:AMBER,buf);
-    if(probe_.control_result()==2) {
-        sprintf_s(buf,sizeof(buf),"Erro %lu / origem %d",
-                  probe_.control_error(),probe_.control_error_source());
-        text(669,384,1.07f,MUTED,buf);
-    }
-    sprintf_s(buf,sizeof(buf),"TCP 80: %s",status_name(probe_.control80_result()));
-    text(669,445,1.26f,probe_.control80_result()==1?LIME:AMBER,buf);
-    if(probe_.control80_result()==2) {
-        sprintf_s(buf,sizeof(buf),"Erro %lu / origem %d",
-                  probe_.control80_error(),probe_.control80_error_source());
-        text(669,486,1.07f,MUTED,buf);
-    }
-    sprintf_s(buf,sizeof(buf),"ETAPA %d   /   ORIGEM %d",
-              probe_.stage(),probe_.error_source());
-    text(70,607,1.08f,MUTED,buf);
-    footer("A REPETIR     Y FORTNITE     B INICIO     BACK SAIR");
-}
-
-void App::shutdown() {
+void App::shutdown(){
     running_=false;
+    account_.cancel();
     platform::shutdown();
 }

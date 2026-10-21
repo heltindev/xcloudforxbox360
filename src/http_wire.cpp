@@ -83,6 +83,40 @@ bool make_request(const char* method,const char* host,const char* path,
     *written=used;
     return true;
 }
+bool make_xbox_json_request(const char* host,const char* path,
+                            const char* body,size_t body_length,
+                            char* out,size_t capacity,size_t* written) {
+    if(!out || !written || !body || !body_length)return false;
+    if(!make_request("POST",host,path,"application/json",body,
+                     body_length,out,capacity,written))return false;
+    // The Xbox User and XSTS APIs require x-xbl-contract-version: 1.
+    // Insert a fixed (not user-controlled) header in the existing bounds.
+    static const char contract[]="x-xbl-contract-version: 1\r\n";
+    const size_t n=sizeof(contract)-1;
+    char* separator=strstr(out,"\r\n\r\n");
+    if(!separator || *written+n>=capacity)return false;
+    const size_t offset=(size_t)(separator-out)+2;
+    // Keep the HTTP body and the final NUL, including embedded bytes
+    // after the inserted header in the same request.
+    memmove(out+offset+n,out+offset,*written-offset+1);
+    memcpy(out+offset,contract,n);
+    *written+=n;
+    return true;
+}
+bool make_cloud_login_request(const char* body,size_t bytes,
+                              char* out,size_t capacity,size_t* written) {
+    if(!make_request("POST","xgpuweb.gssv-play-prod.xboxlive.com",
+         "/v2/login/user","application/json",body,bytes,
+         out,capacity,written))return false;
+    static const char extra[]="x-gssv-client: XboxComBrowser\r\n";
+    char* separator=strstr(out,"\r\n\r\n");
+    const size_t n=sizeof(extra)-1;
+    if(!separator || *written+n>=capacity)return false;
+    const size_t at=(size_t)(separator-out)+2;
+    memmove(out+at+n,out+at,*written-at+1);
+    memcpy(out+at,extra,n);*written+=n;
+    return true;
+}
 bool parse_response(const char* data,size_t length,Response* response) {
     if (!data || !response || length<16 || length>MAX_HEADERS+MAX_BODY) return false;
     size_t end=0;

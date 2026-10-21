@@ -147,13 +147,159 @@ UdpDnsResult try_server(const char* hostname, const char* server) {
         }
     }
     closesocket(sock);
+    if (result.state == 1) result.transport = 1;
+    return result;
+}
+bool send_exact(SOCKET sock, const unsigned char* p, int size) {
+    int total=0;
+    while(total<size) {
+        const int n=send(sock,(const char*)p+total,size-total,0);
+        if(n<=0)return false;
+        total+=n;
+    }
+    return true;
+}
+bool receive_exact(SOCKET sock, unsigned char* p, int size) {
+    int total=0;
+    while(total<size) {
+        const int n=recv(sock,(char*)p+total,size-total,0);
+        if(n<=0)return false;
+        total+=n;
+    }
+    return true;
+}
+// RFC 1035 DNS over TCP fallback. The DNS packet is prefixed by a 16-bit
+// big-endian length. Uses only numeric IPs; does not rely on Xbox XNet DNS.
+// DNS by itself is not trusted for identity: the TLS client MUST verify
+// the original hostname against the HTTPS certificate after TCP connects.
+UdpDnsResult try_tcp_server(const char* hostname,const char* server) {
+    UdpDnsResult result;
+    memset(&result,0,sizeof(result));
+    result.state=2;
+    result.transport=2;
+    const unsigned long server_ip=inet_addr(server);
+    result.server=server_ip;
+    unsigned char question[kMaxPacket+2];
+    const unsigned int tid=(unsigned int)(GetTickCount()&0xffffu);
+    const int length=build_question(question+2,kMaxPacket,hostname,tid);
+    if(length<=0) {result.error=0xE101;result.error_source=10;return result;}
+    question[0]=(unsigned char)(length>>8);
+    question[1]=(unsigned char)length;
+    SOCKET sock=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+    if(sock==INVALID_SOCKET) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=6;
+        return result;
+    }
+    u_long enabled=1;
+    if(ioctlsocket(sock,FIONBIO,&enabled)==SOCKET_ERROR) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=7;
+        closesocket(sock);
+        return result;
+    }
+    sockaddr_in endpoint;
+    memset(&endpoint,0,sizeof(endpoint));
+    endpoint.sin_family=AF_INET;
+    endpoint.sin_port=htons(53);
+    endpoint.sin_addr.s_addr=server_ip;
+    const int connected=connect(sock,(const sockaddr*)&endpoint,sizeof(endpoint));
+    if(connected==SOCKET_ERROR) {
+        const int err=WSAGetLastError();
+        if(err!=WSAEWOULDBLOCK && err!=WSAEINPROGRESS &&
+           err!=WSAEALREADY) {
+            result.error=(unsigned long)err;
+            result.error_source=7;
+            closesocket(sock);
+            return result;
+        }
+        fd_set writable,failed;
+        FD_ZERO(&writable);FD_ZERO(&failed);
+        FD_SET(sock,&writable);FD_SET(sock,&failed);
+        timeval wait;
+        wait.tv_sec=3;
+        wait.tv_usec=0;
+        const int n=select(0,NULL,&writable,&failed,&wait);
+        if(n<=0 || !FD_ISSET(sock,&writable)) {
+            result.error=n==0 ? WSAETIMEDOUT :
+                         (n<0 ? (unsigned long)WSAGetLastError() :
+                                (unsigned long)WSAECONNREFUSED);
+            result.error_source=7;
+            closesocket(sock);
+            return result;
+        }
+        // Xenia does not implement NetDll_getpeername. Do NOT treat
+        // select(writable) as success: an actual framed DNS request is
+        // sent and a matching DNS reply is required further below.
+    }
+    enabled=0;
+    if(ioctlsocket(sock,FIONBIO,&enabled)==SOCKET_ERROR) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=7;
+        closesocket(sock);
+        return result;
+    }
+    DWORD timeout=4000;
+    if(setsockopt(sock,SOL_SOCKET,SO_SNDTIMEO,(const char*)&timeout,
+                  sizeof(timeout))==SOCKET_ERROR ||
+       setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,
+                  sizeof(timeout))==SOCKET_ERROR) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=8;
+        closesocket(sock);
+        return result;
+    }
+    if(!send_exact(sock,question,length+2)) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=8;
+        closesocket(sock);
+        return result;
+    }
+    unsigned char header[2];
+    if(!receive_exact(sock,header,2)) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=9;
+        closesocket(sock);
+        return result;
+    }
+    const unsigned int reply_length=get16(header);
+    if(reply_length<12 || reply_length>kMaxPacket) {
+        result.error=0xE102;
+        result.error_source=10;
+        closesocket(sock);
+        return result;
+    }
+    unsigned char reply[kMaxPacket];
+    if(!receive_exact(sock,reply,(int)reply_length)) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=9;
+        closesocket(sock);
+        return result;
+    }
+    closesocket(sock);
+    if(!parse_reply(reply,(int)reply_length,tid,&result)) {
+        result.error=0xE103;
+        result.error_source=10;
+        return result;
+    }
+    result.state=1;
+    result.error=0;
+    result.error_source=0;
     return result;
 }
 }
 
 UdpDnsResult udp_dns_lookup_google(const char* hostname) {
-    UdpDnsResult primary = try_server(hostname,"8.8.8.8");
-    if (primary.state == 1) return primary;
-    UdpDnsResult secondary = try_server(hostname,"8.8.4.4");
-    return secondary.state == 1 ? secondary : primary;
+    // Xbox resolver is always tried FIRST in each caller. On failure,
+    // probe public UDP DNS, then DNS over TCP (Cloudflare/Google).
+    UdpDnsResult google_udp=try_server(hostname,"8.8.8.8");
+    if(google_udp.state==1)return google_udp;
+    UdpDnsResult google_udp_alt=try_server(hostname,"8.8.4.4");
+    if(google_udp_alt.state==1)return google_udp_alt;
+    UdpDnsResult cloudflare_tcp=try_tcp_server(hostname,"1.1.1.1");
+    if(cloudflare_tcp.state==1)return cloudflare_tcp;
+    UdpDnsResult google_tcp=try_tcp_server(hostname,"8.8.8.8");
+    if(google_tcp.state==1)return google_tcp;
+    // Do not fake a successful lookup if the provider is blocked.
+    return cloudflare_tcp;
 }

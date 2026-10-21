@@ -8,10 +8,58 @@
 // Two independent transport checks: hostname-based Xbox endpoint and
 // direct public IPv4 address (1.1.1.1), both port 443. No TLS or HTTP.
 namespace {
-struct TestOutcome { DWORD error; int source; };
+struct TestOutcome { DWORD error; int source; bool provisional; };
+bool proof_http80(SOCKET sock, TestOutcome* result) {
+    // An actual server response is stronger evidence than select(writable).
+    u_long block=0;
+    if(ioctlsocket(sock,FIONBIO,&block)==SOCKET_ERROR) {
+        result->error=(DWORD)WSAGetLastError();
+        result->source=TcpProbe::SOCKET_MODE;
+        return false;
+    }
+    DWORD timeout=4000;
+    if(setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,
+                  sizeof(timeout))==SOCKET_ERROR ||
+       setsockopt(sock,SOL_SOCKET,SO_SNDTIMEO,(const char*)&timeout,
+                  sizeof(timeout))==SOCKET_ERROR) {
+        result->error=(DWORD)WSAGetLastError();
+        result->source=TcpProbe::TCP_RESULT;
+        return false;
+    }
+    const char request[]="HEAD / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n";
+    int sent=0;
+    const int request_size=(int)sizeof(request)-1;
+    while(sent<request_size) {
+        const int n=send(sock,request+sent,request_size-sent,0);
+        if(n<=0) {
+            result->error=(DWORD)WSAGetLastError();
+            result->source=TcpProbe::TCP_RESULT;
+            return false;
+        }
+        sent+=n;
+    }
+    char header[8];
+    int read=0;
+    while(read<7) {
+        const int n=recv(sock,header+read,7-read,0);
+        if(n<=0) {
+            result->error=n==0 ? (DWORD)WSAECONNRESET :
+                               (DWORD)WSAGetLastError();
+            result->source=TcpProbe::TCP_RESULT;
+            return false;
+        }
+        read+=n;
+    }
+    if(memcmp(header,"HTTP/1.",7)!=0) {
+        result->error=0xE410u; // Protocol proof failed, not WinSock.
+        result->source=TcpProbe::TCP_RESULT;
+        return false;
+    }
+    return true;
+}
 
 TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
-    TestOutcome result = { 0, TcpProbe::NONE };
+    TestOutcome result = { 0, TcpProbe::NONE, false };
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
         result.error = (DWORD)WSAGetLastError();
@@ -58,23 +106,23 @@ TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
             closesocket(sock);
             return result;
         }
-        // The Xbox 360 SDK does not expose SO_ERROR. Verify that the TCP
-        // connection is actually established, not merely signaled writable.
+        // Xenia lacks NetDll_getpeername and SO_ERROR is absent in XDK.
+        // select(writable) alone cannot prove that remote TCP succeeded.
         if (!FD_ISSET(sock, &writeable)) {
             result.error = (DWORD)WSAECONNREFUSED;
             result.source = TcpProbe::TCP_RESULT;
             closesocket(sock);
             return result;
         }
-        sockaddr_in peer;
-        int peer_len = sizeof(peer);
-        ZeroMemory(&peer, sizeof(peer));
-        if (getpeername(sock, (sockaddr*)&peer, &peer_len) == SOCKET_ERROR) {
-            result.error = (DWORD)WSAGetLastError();
-            result.source = TcpProbe::TCP_RESULT;
-            closesocket(sock);
-            return result;
-        }
+    }
+    if(port==80) {
+        // Only call 80 VERIFIED if an HTTP server actually responds.
+        proof_http80(sock,&result);
+    } else {
+        // Port 443 requires a real TLS handshake to claim verified.
+        // A writable socket is provisional, not xCloud connectivity.
+        result.provisional=true;
+        result.source=TcpProbe::TCP_RESULT;
     }
     closesocket(sock);
     return result;
@@ -88,7 +136,8 @@ TcpProbe::TcpProbe()
       xbox_error_source_(NONE), control_error_source_(NONE),
       udp_dns_state_(0), udp_dns_error_(0), udp_dns_error_source_(0),
       udp_dns_addresses_(0), dns_path_(0), control80_result_(0),
-      control80_error_(0), control80_error_source_(NONE) {}
+      control80_error_(0), control80_error_source_(NONE),
+      link_flags_(0),address_flags_(0),local_ip_(0) {}
 
 TcpProbe::~TcpProbe() {
     if (thread_) {
@@ -120,6 +169,9 @@ bool TcpProbe::start() {
     control80_result_ = 0;
     control80_error_ = 0;
     control80_error_source_ = NONE;
+    link_flags_ = 0;
+    address_flags_ = 0;
+    local_ip_ = 0;
     state_ = RUNNING;
     thread_ = CreateThread(NULL, 0, worker, this, 0, NULL);
     if (!thread_) {
@@ -157,6 +209,9 @@ int TcpProbe::dns_path() const { return (int)dns_path_; }
 int TcpProbe::control80_result() const { return (int)control80_result_; }
 unsigned long TcpProbe::control80_error() const { return (unsigned long)control80_error_; }
 int TcpProbe::control80_error_source() const { return (int)control80_error_source_; }
+unsigned long TcpProbe::link_flags() const { return (unsigned long)link_flags_; }
+unsigned long TcpProbe::address_flags() const { return (unsigned long)address_flags_; }
+unsigned long TcpProbe::local_ip() const { return (unsigned long)local_ip_; }
 
 DWORD WINAPI TcpProbe::worker(LPVOID context) {
     static_cast<TcpProbe*>(context)->perform();
@@ -176,12 +231,22 @@ void TcpProbe::perform() {
     ZeroMemory(&params, sizeof(params));
     params.cfgSizeOfStruct = sizeof(params);
     // Devkit-only override; retail XNet generally ignores this flag.
-    params.cfgFlags = XNET_STARTUP_BYPASS_SECURITY;
+    params.cfgFlags = 0; // Retail-safe defaults; bypass flag is devkit-only.
     {
         const int status = XNetStartup(&params);
         if (status != 0) { error_ = status; source_ = XNET_INIT; goto cleanup; }
     }
     xnet = true;
+
+    // Preserve physical-link and address diagnostics even when public TCP
+    // times out. These are configuration facts, not a security bypass.
+    link_flags_ = (LONG)XNetGetEthernetLinkStatus();
+    {
+        XNADDR addr;
+        ZeroMemory(&addr,sizeof(addr));
+        address_flags_ = (LONG)XNetGetTitleXnAddr(&addr);
+        local_ip_ = (LONG)addr.ina.s_addr;
+    }
 
     stage_ = 2;
     {
@@ -235,7 +300,7 @@ void TcpProbe::perform() {
             if (target_count > 3) target_count = 3;
             for (int i = 0; i < target_count; ++i)
                 targets[i] = external.addresses[i];
-            dns_path_ = 2;
+            dns_path_ = external.transport == 2 ? 3 : 2;
         }
     }
 
@@ -252,7 +317,7 @@ void TcpProbe::perform() {
             xbox_error_ = (LONG)o.error;
             xbox_error_source_ = (LONG)o.source;
             if (o.error == 0) {
-                xbox_result_ = 1;
+                xbox_result_ = o.provisional ? 3 : 1;
                 xbox_error_ = 0;
                 break;
             }
@@ -271,7 +336,7 @@ void TcpProbe::perform() {
         const TestOutcome o = attempt_tcp(control, 443, 6000);
         control_error_ = (LONG)o.error;
         control_error_source_ = (LONG)o.source;
-        control_result_ = o.error == 0 ? 1 : 2;
+        control_result_ = o.error == 0 ? (o.provisional ? 3 : 1) : 2;
         if (o.error != 0) {
             error_ = (LONG)o.error;
             source_ = (LONG)o.source;
@@ -288,7 +353,7 @@ void TcpProbe::perform() {
         const TestOutcome o = attempt_tcp(control, 80, 6000);
         control80_error_ = (LONG)o.error;
         control80_error_source_ = (LONG)o.source;
-        control80_result_ = o.error == 0 ? 1 : 2;
+        control80_result_ = o.error == 0 ? (o.provisional ? 3 : 1) : 2;
         if (o.error != 0) {
             error_ = (LONG)o.error;
             source_ = (LONG)o.source;

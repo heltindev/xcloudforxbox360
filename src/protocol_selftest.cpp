@@ -6,18 +6,67 @@
 #include "h264_nal.h"
 #include "xcloud_input.h"
 #include "xcloud_control.h"
+#include "xcloud_bridge.h"
+#include "xbox_device_flow.h"
+#include "xbox_live_auth.h"
+#include "xbox_live_exchange.h"
 #include "h264_rtp_receiver.h"
+#include "xboxtls/sha384.h"
+#include "xboxtls/tls13.h"
 #include <xtl.h>
 #include <string.h>
 
 bool protocol_selftest() {
     // Offline test data only. Never makes a network request or sends an
     // authentication token. The XEX runs this once during initialization.
+    // FIPS 180-4 SHA-384 vectors: detects big/little-endian and 64-bit
+    // arithmetic errors that can invalidate Microsoft RSA/SHA-384 chains.
+    static const unsigned char sha384_abc[48]={
+        0xcb,0x00,0x75,0x3f,0x45,0xa3,0x5e,0x8b,0xb5,0xa0,0x3d,0x69,
+        0x9a,0xc6,0x50,0x07,0x27,0x2c,0x32,0xab,0x0e,0xde,0xd1,0x63,
+        0x1a,0x8b,0x60,0x5a,0x43,0xff,0x5b,0xed,0x80,0x86,0x07,0x2b,
+        0xa1,0xe7,0xcc,0x23,0x58,0xba,0xec,0xa1,0x34,0xc8,0x25,0xa7
+    };
+    static const unsigned char sha384_empty[48]={
+        0x38,0xb0,0x60,0xa7,0x51,0xac,0x96,0x38,0x4c,0xd9,0x32,0x7e,
+        0xb1,0xb1,0xe3,0x6a,0x21,0xfd,0xb7,0x11,0x14,0xbe,0x07,0x43,
+        0x4c,0x0c,0xc7,0xbf,0x63,0xf6,0xe1,0xda,0x27,0x4e,0xde,0xbf,
+        0xe7,0x6f,0x65,0xfb,0xd5,0x1a,0xd2,0xf1,0x48,0x98,0xb9,0x5b
+    };
+    unsigned char sha384_digest[48];
+    const char abc[]="abc";
+    xboxtls::sha384(xboxtls::ByteSpan((const unsigned char*)abc,3),sha384_digest);
+    if(memcmp(sha384_digest,sha384_abc,48)!=0)return false;
+    xboxtls::sha384(xboxtls::ByteSpan((const unsigned char*)abc,0),sha384_digest);
+    if(memcmp(sha384_digest,sha384_empty,48)!=0)return false;
+    // RFC 8446 PSK-less TLS 1.3 early secret: HKDF-Extract(0^32, 0^32)
+    static const unsigned char early_secret_expected[32]={
+        0x33,0xad,0x0a,0x1c,0x60,0x7e,0xc0,0x3b,
+        0x09,0xe6,0xcd,0x98,0x93,0x68,0x0c,0xe2,
+        0x10,0xad,0xf3,0x00,0xaa,0x1f,0x26,0x60,
+        0xe1,0xb2,0x2e,0x10,0xf1,0x70,0xf9,0x2a
+    };
+    xboxtls::KeyScheduleSha256 schedule;
+    if(schedule.derive_early_secret(xboxtls::ByteSpan())!=xboxtls::XT_OK ||
+       memcmp(schedule.early_secret,early_secret_expected,32)!=0)
+        return false;
+
     char request[512];
     size_t written=0;
     if(!http_wire::make_request("GET","example.com","/",NULL,NULL,0,
                                 request,sizeof(request),&written) ||
        written<16 || memcmp(request,"GET / HTTP/1.1",14)!=0)
+        return false;
+
+    // Strict JSON Xbox headers: bounded, format-only, no real traffic.
+    const char localJson[]="{\"LocalTest\":\"true\"}";
+    if(!http_wire::make_xbox_json_request(
+            "user.auth.xboxlive.com","/user/authenticate",
+            localJson,sizeof(localJson)-1,request,sizeof(request),
+            &written) ||
+       !strstr(request,"x-xbl-contract-version: 1\r\n") ||
+       !strstr(request,"Content-Type: application/json\r\n") ||
+       !strstr(request,localJson))
         return false;
 
     const char exampleResponse[]="HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK";
@@ -103,6 +152,11 @@ bool protocol_selftest() {
                                            1280,720,30,3500) ||
        strstr(message,"clientdevicecapabilities")==NULL)
         return false;
+
+    if(!xbox_device_flow::offline_selftest()) return false;
+    if(!xbox_live_auth::offline_selftest()) return false;
+    if(!xbox_live_exchange::offline_selftest()) return false;
+    if(!xcloud_bridge::offline_selftest()) return false;
 
     // Keep the large 512-KB AU buffer outside the startup stack.
     static h264_rtp::Receiver video;

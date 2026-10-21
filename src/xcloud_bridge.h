@@ -9,6 +9,9 @@
 // from any PS3 runtime. All callbacks must be supplied by a FUTURE verified,
 // authorized WebRTC peer. No network, sign-in, video decoder or DLL is included.
 namespace xcloud_bridge {
+// Offline, synthetic end-to-end data-channel and RTP adapter regression.
+// This must NEVER be reported as proof of a live xCloud stream.
+bool offline_selftest();
 enum Channel {
     CONTROL_CHANNEL=0,
     INPUT_CHANNEL=2,
