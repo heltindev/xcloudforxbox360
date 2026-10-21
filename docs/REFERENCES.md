@@ -14,6 +14,10 @@
 
 For the **actual source-based architecture study and native Xbox 360 adapters**, see [GR33N_XEX_PORT.md](GR33N_XEX_PORT.md), including the pinned GR33N commit and unimplemented pieces.
 
+A separately supplied `XCLOUDPS3.pkg` was inspected offline and is identified as **DeepPlay** in its `PARAM.SFO`, not GR33N. Its interface assets inspired an original procedural midnight-blue Xbox 360 theme; none were imported into the XEX. Details: [DEEPPLAY_PKG_ANALYSIS.md](DEEPPLAY_PKG_ANALYSIS.md).
+
+A separate [TLS 1.3 / Microsoft device-code migration](TLS_ACCOUNT_INTEGRATION.md) now documents the MIT XboxTLS13 C++ source, consolidation into the main XEX, original licensing and current network blockers. It is **not** evidence of a successful login.
+
 ## Important findings
 
 **GR33N lists the following dependency build order:**

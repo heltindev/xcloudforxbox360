@@ -7,14 +7,14 @@ Libxenon is a **bare-metal Xbox 360 homebrew development environment**, not a ge
 
 ## What exists now
 
-A deliberately isolated folder `experimental_xell/` was added with a minimal `Makefile` and `source/main.c`, derived structurally from the documented Free60 `xenon-examples` layout. It initializes a console screen and polls the controller for Y/Guide to exit.
+A deliberately isolated reference folder `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/experimental_xell/` is preserved (moved there during root cleanup) with a minimal `Makefile` and `source/main.c`, derived structurally from the documented Free60 `xenon-examples` layout. It initializes a console screen and polls the controller for Y/Guide to exit.
 
-**This example has not been compiled; it has no networking and is not a streaming client.** It is meant to validate the alternative startup path only.
+**This example is archived privately under PASTACODIGOBASE, not included in the GitHub source mirror or native XEX build. It has not been compiled; it has no networking and is not a streaming client.** It is meant to validate the alternative startup path only.
 
 ## Planned investigation
 
 1. Set up an authorized, compatible libxenon cross-compiler and `DEVKITXENON` environment variable on the developer's build machine.
-2. From `experimental_xell/`, use `make` to compile a native PowerPC ELF32.
+2. From `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/experimental_xell/`, use `make` to compile a native PowerPC ELF32.
 3. Copy the resulting ELF32 to a FAT32 USB drive as `xenon.elf` and load it via **an already-installed XeLL**.
 4. Confirm GPU initialization, displayed text, controller polling and clean exit.
 5. Inspect the actual network APIs and lwIP configuration in the installed libxenon version.

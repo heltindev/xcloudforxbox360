@@ -6,6 +6,8 @@
 
 > **Status:** The Xbox 360 client is still **NOT able to sign in to Xbox Cloud Gaming or play Fortnite**. This work ports selected data-format and architectural concepts, **not the complete GR33N runtime**. Source changes await compilation and physical Xbox testing by the project owner.
 
+The new native UI also includes an **interactive local Direct3D mini-demo**, intended to validate Xbox 360 XInput and GPU rendering independently of cloud networking. It is **not a game-streaming decoder or Fortnite port**. Font scaling was adjusted for the 480p fallback. These are newly written Xbox 360 components and require physical hardware validation.
+
 ## What was inspected in GR33N
 
 - `source/xcmsg.c` and `include/xcmsg.h`: control-channel messages, gamepad reports and **explicit little-endian serialization on big-endian PowerPC**.
