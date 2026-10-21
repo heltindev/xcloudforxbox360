@@ -135,6 +135,7 @@ bool parse_response(const char* data,size_t length,Response* response) {
     parsed.content_length=0;
     parsed.has_length=false;
     parsed.chunked=false;
+    bool saw_transfer_encoding=false;
     if (parsed.status<100 || parsed.status>599) return false;
     size_t at=0;
     while (at+1<end && !(data[at]=='\r' && data[at+1]=='\n')) ++at;
@@ -160,15 +161,57 @@ bool parse_response(const char* data,size_t length,Response* response) {
             parsed.has_length=true;
         }
         if (same_key(data+at,"Transfer-Encoding",colon-at)) {
-            // Deliberately do not parse chunked body yet.
-            if (lineEnd-value>=7 && memcmp(data+value,"chunked",7)==0)
-                parsed.chunked=true;
+            if(saw_transfer_encoding ||
+               !same_key(data+value,"chunked",lineEnd-value))return false;
+            saw_transfer_encoding=true;
+            parsed.chunked=true;
         }
         at=lineEnd+2;
     }
     if (parsed.chunked && parsed.has_length) return false;
     *response=parsed;
     return true;
+}
+bool decode_chunked(const char* data,size_t length,char* out,
+                    size_t capacity,size_t* decoded) {
+    if(!data || !decoded)return false;
+    *decoded=0;
+    size_t at=0,used=0;
+    while(at<length) {
+        size_t size=0,digits=0;
+        while(at<length && data[at]!='\r') {
+            const unsigned char c=(unsigned char)data[at++];
+            unsigned int digit;
+            if(c>='0' && c<='9')digit=c-'0';
+            else if(c>='a' && c<='f')digit=c-'a'+10;
+            else if(c>='A' && c<='F')digit=c-'A'+10;
+            else return false; // Chunk extensions/trailers are not supported.
+            if(++digits>8 || digit>capacity || size>(capacity-digit)/16)return false;
+            size=size*16+digit;
+        }
+        if(!digits || length-at<2 || data[at]!='\r' || data[at+1]!='\n')return false;
+        at+=2;
+        if(size==0) {
+            if(length-at!=2 || data[at]!='\r' || data[at+1]!='\n')return false;
+            *decoded=used;return true;
+        }
+        if(size>capacity-used || size>length-at || length-at-size<2 ||
+           data[at+size]!='\r' || data[at+size+1]!='\n')return false;
+        if(out)memcpy(out+used,data+at,size);
+        used+=size;at+=size+2;
+    }
+    return false;
+}
+bool response_complete(const char* data,size_t length) {
+    Response parsed;
+    if(!parse_response(data,length,&parsed))return false;
+    const size_t body=length-parsed.body_offset;
+    if(parsed.chunked) {
+        size_t decoded=0;
+        return decode_chunked(data+parsed.body_offset,body,NULL,MAX_BODY,&decoded);
+    }
+    if(parsed.has_length)return body>=parsed.content_length;
+    return parsed.status==204 || parsed.status==304;
 }
 bool form_escape(const char* input,char* out,size_t cap) {
     if (!input || !out || cap==0) return false;

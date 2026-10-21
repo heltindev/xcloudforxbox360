@@ -49,6 +49,8 @@ void XboxAccount::publish(Status status,const char* stage,
                           unsigned int cloud_regions) {
     EnterCriticalSection(&lock_);
     current_.state=status;
+    current_.cloud_credentials_ready=false;
+    current_.cloud_credentials_seconds=0;
     bounded_copy(current_.stage,sizeof(current_.stage),stage);
     bounded_copy(current_.verification_url,
                  sizeof(current_.verification_url),url);
@@ -108,6 +110,17 @@ DWORD WINAPI XboxAccount::worker_main(LPVOID arg) {
     if(self)self->perform();
     return 0;
 }
+unsigned int XboxAccount::worker_clock(void*) {return (unsigned int)GetTickCount();}
+bool XboxAccount::worker_cancelled(void* context) {
+    XboxAccount* self=static_cast<XboxAccount*>(context);
+    return InterlockedCompareExchange(&self->cancel_requested_,0,0)!=0;
+}
+void XboxAccount::publish_credentials(unsigned int seconds) {
+    EnterCriticalSection(&lock_);
+    current_.cloud_credentials_ready=seconds!=0;
+    current_.cloud_credentials_seconds=seconds;
+    LeaveCriticalSection(&lock_);
+}
 void XboxAccount::perform() {
     XboxTlsBackend backend;
     secure_http::Transport transport;
@@ -146,12 +159,16 @@ void XboxAccount::perform() {
                         "XBOX USER / XSTS TLS TOKEN EXCHANGE",
                         NULL,NULL,0,0,flow.last_http_status(),0,
                         0,0,true);
+                xbox_live_exchange::CloudCredentials credentials;
+                xbox_live_exchange::WorkerContext worker={
+                    &credentials,&XboxAccount::worker_clock,
+                    &XboxAccount::worker_cancelled,this};
                 xbox_live_exchange::Result result;
                 const bool authorized=xbox_live_exchange::exchange(
                     flow.xbox_token_for_worker(),true,
-                    &XboxTlsBackend::post_xbox_json,&backend,&result);
+                    &XboxTlsBackend::post_xbox_json,&backend,&result,&worker);
                 // Each operation verifies its certificate chain/hostname;
-                // all Xbox tokens are wiped inside the exchange routine.
+                // intermediate tokens are wiped; gsToken has one worker owner.
                 if(InterlockedCompareExchange(&cancel_requested_,0,0)!=0) {
                     flow.cancel();
                     publish(USER_CANCELLED,"CANCELLED",
@@ -167,7 +184,23 @@ void XboxAccount::perform() {
                     result.xbox_user_received,result.xsts_received,
                     result.xerr,result.user_http,result.xsts_http,
                     result.cloud_login_received,result.cloud_http,result.cloud_regions);
-                (void)authorized; // Session/stream must be separately granted
+                flow.cancel(); // Erase MSA/device secrets after the exchange.
+                if(authorized) {
+                    // Keep gsToken in the worker for future session integration.
+                    // This checkpoint does not allocate a remote game VM.
+                    while(!worker_cancelled(this)) {
+                        const unsigned int left=credentials.remaining_seconds(worker_clock(this));
+                        publish_credentials(left);
+                        if(!left) {
+                            publish(LOGIN_FAILED,"XCLOUD LOGIN EXPIRED",
+                                    NULL,NULL,0,0,0,0);
+                            return;
+                        }
+                        Sleep(100);
+                    }
+                    credentials.clear();
+                    publish(USER_CANCELLED,"CANCELLED",NULL,NULL,0,0,0,0);
+                }
             } else {
                 publish(ACCOUNT_AUTHORIZED,
                     "MSA OK / XBOX SCOPE NOT CONFIRMED",

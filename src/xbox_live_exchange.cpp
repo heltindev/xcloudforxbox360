@@ -82,7 +82,8 @@ bool verified_response(const secure_http::Response& response) {
            response.length<secure_http::RESPONSE_CAP &&
            response.http_status>=100 && response.http_status<=599;
 }
-bool validate_cloud(const secure_http::Response& response,unsigned int* count) {
+bool validate_cloud(const secure_http::Response& response,unsigned int* count,
+                    WorkerContext* worker) {
     *count=0;
     cJSON* root=response_json(response);
     if(!root)return false;
@@ -92,17 +93,32 @@ bool validate_cloud(const secure_http::Response& response,unsigned int* count) {
     const cJSON* regions=cJSON_GetObjectItemCaseSensitive(settings,"regions");
     bool okay=cJSON_IsString(token) && valid_server_token(token->valuestring) &&
         cJSON_IsNumber(duration) && duration->valuedouble>0.0 &&
-        duration->valuedouble<=2147483647.0 && cJSON_IsArray(regions);
+        duration->valuedouble<=2147483647.0 &&
+        duration->valuedouble==(double)(unsigned int)duration->valuedouble &&
+        cJSON_IsArray(regions);
+    const char* selected_uri=NULL;
+    bool selected_default=false;
     if(okay) {
         const cJSON* item=NULL;
         cJSON_ArrayForEach(item,regions) {
             const cJSON* uri=cJSON_GetObjectItemCaseSensitive(item,"baseUri");
             char host[128];
             if(cJSON_IsString(uri) &&
-               region_catalog::extract_xbox_hostname(uri->valuestring,host,sizeof(host)))
+               region_catalog::extract_xbox_hostname(uri->valuestring,host,sizeof(host))) {
                 ++*count;
+                const bool is_default=cJSON_IsTrue(
+                    cJSON_GetObjectItemCaseSensitive(item,"isDefault"))!=0;
+                if(!selected_uri || (is_default && !selected_default)) {
+                    selected_uri=uri->valuestring;
+                    selected_default=is_default;
+                }
+            }
         }
         okay=*count>0;
+        if(okay && worker)
+            okay=worker->credentials->retain(token->valuestring,selected_uri,
+                (unsigned int)duration->valuedouble,
+                worker->clock_ms(worker->context));
     }
     release_json(root);
     if(!okay)*count=0;
@@ -123,8 +139,40 @@ bool get_token(const secure_http::Response& response,
     return okay;
 }
 }
+CloudCredentials::CloudCredentials() {clear();}
+CloudCredentials::~CloudCredentials() {clear();}
+void CloudCredentials::clear() {
+    secure_http::secure_zero(token_,sizeof(token_));
+    secure_http::secure_zero(host_,sizeof(host_));
+    started_ms_=0;lifetime_ms_=0;
+}
+bool CloudCredentials::retain(const char* token,const char* uri,
+                              unsigned int seconds,unsigned int now) {
+    clear();
+    if(!seconds || !valid_server_token(token) ||
+       !region_catalog::extract_xbox_hostname(uri,host_,sizeof(host_))) {
+        clear();return false;
+    }
+    strcpy_s(token_,sizeof(token_),token);
+    // Bound retention to one day, below the 32-bit elapsed-time ambiguity.
+    if(seconds>86400u)seconds=86400u;
+    started_ms_=now;lifetime_ms_=seconds*1000u;
+    return true;
+}
+unsigned int CloudCredentials::remaining_seconds(unsigned int now) {
+    const unsigned int elapsed=now-started_ms_;
+    if(!lifetime_ms_ || elapsed>=lifetime_ms_) {clear();return 0;}
+    return (lifetime_ms_-elapsed+999u)/1000u;
+}
+const char* CloudCredentials::token_for_worker(unsigned int now) {
+    return remaining_seconds(now)?token_:NULL;
+}
+const char* CloudCredentials::host_for_worker(unsigned int now) {
+    return remaining_seconds(now)?host_:NULL;
+}
 const char* stage_text(Stage stage) {
     switch(stage) {
+    case EXCHANGE_CANCELLED:return "LOGIN CANCELLED";
     case NOT_STARTED:return "XBOX EXCHANGE NOT STARTED";
     case XBOX_SCOPE_MISSING:return "XBOX SCOPE NOT GRANTED";
     case INVALID_TOKEN:return "MICROSOFT TOKEN NOT USABLE";
@@ -141,9 +189,13 @@ const char* stage_text(Stage stage) {
     }
 }
 bool exchange(const char* msa,bool scope,PostJson callback,
-              void* context,Result* out) {
+              void* context,Result* out,WorkerContext* worker) {
+    if(worker && worker->credentials)worker->credentials->clear();
     if(!out)return false;
     initial(out);
+    if(worker && (!worker->credentials || !worker->clock_ms)) {
+        out->stage=HTTPS_UNAVAILABLE;return false;
+    }
     if(!scope) {out->stage=XBOX_SCOPE_MISSING;return false;}
     if(!valid_server_token(msa)) {
         out->stage=INVALID_TOKEN;return false;
@@ -158,6 +210,9 @@ bool exchange(const char* msa,bool scope,PostJson callback,
     // Exactly one attempt; an early break still reaches the common secure wipe.
     // A bounded loop avoids MSVC C4127 from do/while(false).
     for (int attempt=0;attempt<1;++attempt) {
+        if(worker && worker->cancelled && worker->cancelled(worker->context)) {
+            out->stage=EXCHANGE_CANCELLED;break;
+        }
         if(!xbox_live_auth::make_user_auth_request(msa,
                  scratch->form,sizeof(scratch->form))) {
             out->stage=INVALID_TOKEN;break;
@@ -188,6 +243,9 @@ bool exchange(const char* msa,bool scope,PostJson callback,
         secure_http::secure_zero(scratch->xbox_user,
                                  sizeof(scratch->xbox_user));
         const size_t xsts_request=strlen(scratch->form);
+        if(worker && worker->cancelled && worker->cancelled(worker->context)) {
+            out->stage=EXCHANGE_CANCELLED;break;
+        }
         const bool xsts_sent=callback(context,XSTS_HOST,XSTS_PATH,
             scratch->form,xsts_request,&scratch->http);
         secure_http::secure_zero(scratch->form,sizeof(scratch->form));
@@ -217,6 +275,9 @@ bool exchange(const char* msa,bool scope,PostJson callback,
         if(n<=0 || (size_t)n>=sizeof(scratch->form)) {
             out->stage=INVALID_TOKEN;break;
         }
+        if(worker && worker->cancelled && worker->cancelled(worker->context)) {
+            out->stage=EXCHANGE_CANCELLED;break;
+        }
         const bool cloud_sent=callback(context,CLOUD_HOST,CLOUD_PATH,
             scratch->form,(size_t)n,&scratch->http);
         secure_http::secure_zero(scratch->form,sizeof(scratch->form));
@@ -225,15 +286,19 @@ bool exchange(const char* msa,bool scope,PostJson callback,
         }
         out->cloud_http=scratch->http.http_status;
         if(out->cloud_http!=200) {out->stage=CLOUD_HTTP_REJECTED;break;}
-        if(!validate_cloud(scratch->http,&out->cloud_regions)) {
+        if(worker && worker->cancelled && worker->cancelled(worker->context)) {
+            out->stage=EXCHANGE_CANCELLED;break;
+        }
+        if(!validate_cloud(scratch->http,&out->cloud_regions,worker)) {
             out->stage=CLOUD_RESPONSE_INVALID;break;
         }
         out->cloud_login_received=true;
         out->stage=CLOUD_LOGIN_COMPLETE;
         // No cloud VM is allocated without a working WebRTC/media runtime.
-        // gsToken is validated then wiped at this authentication checkpoint.
+        // Only the worker-owned credential survives; response copies are wiped.
         success=true;
     }
+    if(!success && worker)worker->credentials->clear();
     secure_http::secure_zero(scratch,sizeof(*scratch));
     free(scratch);
     return success;

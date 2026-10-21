@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 
-// Reusable, bounded HTTP/1.1 framing for a FUTURE verified TLS transport.
+// Reusable, bounded HTTP/1.1 framing for the verified TLS transport.
 // This module does not create sockets, disable TLS, or send account details.
 namespace http_wire {
 enum { MAX_HEADERS = 8192, MAX_BODY = 1024*1024 };
@@ -23,5 +23,9 @@ bool make_xbox_json_request(const char* host,const char* path,
 bool make_cloud_login_request(const char* body,size_t bytes,
                               char* out,size_t capacity,size_t* written);
 bool parse_response(const char* data, size_t length, Response* response);
+// Framed responses finish without waiting for connection close.
+bool response_complete(const char* data,size_t length);
+bool decode_chunked(const char* data,size_t length,char* out,
+                    size_t capacity,size_t* decoded);
 bool form_escape(const char* input, char* out, size_t capacity);
 }

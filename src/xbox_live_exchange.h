@@ -19,7 +19,33 @@ enum Stage {
     XSTS_COMPLETE=8,
     CLOUD_HTTP_REJECTED=9,
     CLOUD_RESPONSE_INVALID=10,
-    CLOUD_LOGIN_COMPLETE=11
+    CLOUD_LOGIN_COMPLETE=11,
+    EXCHANGE_CANCELLED=12
+};
+// One worker owns these secrets. Never copy them into snapshots, logs or disk.
+class CloudCredentials {
+public:
+    CloudCredentials();
+    ~CloudCredentials();
+    bool retain(const char* token,const char* region_uri,
+                unsigned int seconds,unsigned int now_ms);
+    void clear();
+    unsigned int remaining_seconds(unsigned int now_ms);
+    const char* token_for_worker(unsigned int now_ms);
+    const char* host_for_worker(unsigned int now_ms);
+private:
+    CloudCredentials(const CloudCredentials&);
+    CloudCredentials& operator=(const CloudCredentials&);
+    char token_[7000];
+    char host_[128];
+    unsigned int started_ms_;
+    unsigned int lifetime_ms_;
+};
+struct WorkerContext {
+    CloudCredentials* credentials;
+    unsigned int (*clock_ms)(void* context);
+    bool (*cancelled)(void* context);
+    void* context;
 };
 struct Result {
     Stage stage;
@@ -38,7 +64,8 @@ typedef bool (*PostJson)(void* context,const char* host,
 // Actual HTTPS callback is injectable to permit deterministic offline tests.
 // Network side-effects must only be invoked on a background worker.
 bool exchange(const char* msa_token,bool xbox_scope_verified,
-              PostJson callback,void* context,Result* status);
+              PostJson callback,void* context,Result* status,
+              WorkerContext* worker=NULL);
 const char* stage_text(Stage stage);
 bool offline_selftest();
 }

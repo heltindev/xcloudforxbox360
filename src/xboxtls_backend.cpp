@@ -10,54 +10,7 @@
 namespace {
 const size_t WIRE_CAPACITY=secure_http::RESPONSE_CAP + http_wire::MAX_HEADERS;
 void clear_bytes(void* p,size_t n) {secure_http::secure_zero(p,n);}
-bool decode_chunks(char* body,size_t count,char* out,
-                   size_t capacity,size_t* decoded) {
-    // Strict, bounded transfer-encoding decoder. Do not expose a truncated
-    // Microsoft token response to the OAuth JSON parser.
-    size_t consumed=0,used=0;
-    while(consumed<count) {
-        size_t value=0;
-        bool have_digit=false;
-        size_t scanned=0;
-        while(consumed<count && scanned++<32) {
-            const unsigned char c=(unsigned char)body[consumed++];
-            if(c==';') {
-                // Avoid ambiguous extensions; OAuth endpoints do not
-                // require chunk extensions for this client.
-                return false;
-            }
-            if(c=='\r') {
-                if(consumed>=count || body[consumed++]!='\n' ||
-                   !have_digit)return false;
-                break;
-            }
-            unsigned int digit;
-            if(c>='0'&&c<='9')digit=c-'0';
-            else if(c>='a'&&c<='f')digit=c-'a'+10;
-            else if(c>='A'&&c<='F')digit=c-'A'+10;
-            else return false;
-            have_digit=true;
-            if(value>(capacity-digit)/16)return false;
-            value=value*16+digit;
-        }
-        if(!have_digit || scanned>33)return false;
-        if(value==0) {
-            // Require terminal CRLF after the zero-length chunk.
-            if(count-consumed<2 || body[consumed]!='\r' ||
-               body[consumed+1]!='\n') return false;
-            *decoded=used;
-            return true;
-        }
-        if(value>capacity-used || value>count-consumed ||
-           count-consumed-value<2 ||
-           body[consumed+value]!='\r' ||
-           body[consumed+value+1]!='\n')return false;
-        memcpy(out+used,body+consumed,value);
-        used+=value;
-        consumed+=value+2;
-    }
-    return false;
-}
+
 }
 XboxTlsBackend::XboxTlsBackend() {
     memset(&diagnostic_,0,sizeof(diagnostic_));
@@ -187,6 +140,7 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
         if(error!=xboxtls::XT_OK)break;
         if(received==0) {complete=true;break;}
         received_total+=received;
+        if(http_wire::response_complete(bytes,received_total)) {complete=true;break;}
     }
     client.close();
     bytes[received_total]=0;
@@ -205,11 +159,11 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
     size_t final_bytes=body_bytes;
     bool okay=true;
     if(parsed.chunked) {
-        okay=decode_chunks(bytes+parsed.body_offset,body_bytes,
+        okay=http_wire::decode_chunked(bytes+parsed.body_offset,body_bytes,
                            response->body,secure_http::RESPONSE_CAP-1,
                            &final_bytes);
     } else if(parsed.has_length) {
-        okay=parsed.content_length<=body_bytes;
+        okay=parsed.content_length==body_bytes;
         final_bytes=parsed.content_length;
         if(okay && final_bytes<secure_http::RESPONSE_CAP)
             memcpy(response->body,bytes+parsed.body_offset,final_bytes);

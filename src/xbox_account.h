@@ -33,6 +33,8 @@ public:
         bool cloud_login_verified;
         int cloud_http_status;
         unsigned int cloud_regions;
+        bool cloud_credentials_ready;
+        unsigned int cloud_credentials_seconds;
     };
     XboxAccount();
     ~XboxAccount();
@@ -42,6 +44,9 @@ public:
 private:
     static DWORD WINAPI worker_main(LPVOID arg);
     void perform();
+    static unsigned int worker_clock(void* context);
+    static bool worker_cancelled(void* context);
+    void publish_credentials(unsigned int seconds);
     void publish(Status state,const char* stage,
                  const char* url,const char* code,
                  int tls,int wsa,int http,unsigned int remaining,

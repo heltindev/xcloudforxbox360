@@ -18,14 +18,14 @@ New-Item -ItemType Directory -Path $mirror -Force | Out-Null
 # reference checkout, toolchain executable, cache, secret or XEX.
 $files = New-Object System.Collections.Generic.List[string]
 foreach ($name in @(
-    '.gitignore', 'README.md', 'ROADMAP.md', 'STATUS_DO_PROJETO.md',
+    '.gitignore', 'README.md', 'CHANGELOG.md', 'RELEASE_NOTES.md', 'ROADMAP.md', 'STATUS_DO_PROJETO.md',
     'XCLOUDFORXBOX360.sln', 'XCloud360.vcxproj',
     'auth_config.example.h', 'xex.xml',
     'build_release.ps1', 'embed_font.ps1', 'generate_hd_font.ps1', 'package_github.ps1'
 )) {
     $files.Add($name)
 }
-foreach ($folder in @('src', 'docs', 'third_party')) {
+foreach ($folder in @('src', 'docs', 'third_party', 'tests')) {
     $path = Join-Path $root $folder
     if (!(Test-Path -LiteralPath $path)) {
         throw "Required source folder missing: $folder"

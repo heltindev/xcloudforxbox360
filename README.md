@@ -6,6 +6,12 @@ Cliente experimental de Xbox Cloud Gaming para Xbox 360 RGH/JTAG, desenvolvido e
 
 O objetivo é conectar o Xbox 360 diretamente ao serviço, **sem PC intermediário durante o uso**. O computador é usado para desenvolver e compilar; o login por código exige um navegador no celular ou em outro dispositivo. Projeto independente, sem vínculo com Microsoft, Xbox ou Epic Games.
 
+## Atualização para publicação
+
+[Checklist atualizado](ROADMAP.md) · [Título, tag sugerida e notas da pré-release](RELEASE_NOTES.md). A gestão de credenciais está parcialmente concluída: retenção e expiração prontas; integração com sessão de jogo pendente.
+
+Consulte o [CHANGELOG](CHANGELOG.md) para as alterações de 21/10/2026. Esta é uma atualização experimental de interface e autenticação; ainda não oferece streaming jogável. A pasta contém os fontes e a documentação, sem configuração de conta, SDK ou binários.
+
 ## Interface e funcionamento direto
 
 A interface do XEX usa fundo escuro, destaques verdes e poucos textos: Fortnite, entrada da conta e status. No login aparecem o endereço oficial, o código e o tempo restante. Diagnósticos de falha continuam disponíveis quando necessários.
@@ -21,6 +27,7 @@ A interface do XEX usa fundo escuro, destaques verdes e poucos textos: Fortnite,
 | Microsoft Device Code | Implementado com HTTPS; versões anteriores obtiveram código real no Xenia |
 | Xbox User / XSTS | Código implementado, com leitura de respostas JSON aninhadas e testes simulados |
 | Login no serviço xCloud | Novo encadeamento após XSTS válido; endpoint `/v2/login/user`, validação de token, validade e regiões retornadas |
+| Credenciais xCloud | Mantidas somente em memória, com expiração e limpeza; ainda sem módulo de sessão consumidor |
 | Sessão de jogo | Não implementada |
 | WebRTC / ICE / DTLS / SRTP / SCTP | Não implementados como transporte funcional |
 | Vídeo H.264 e áudio Opus | Sem decodificadores e reprodução integrados |
@@ -31,11 +38,16 @@ A interface do XEX usa fundo escuro, destaques verdes e poucos textos: Fortnite,
 
 ## Alterações mais recentes
 
+- Credenciais xCloud com proprietário único, expiração e limpeza ao cancelar.
+- Cancelamento entre as requisições de autenticação e bloqueio de login duplicado enquanto autenticado.
+- Leitura HTTPS conclui ao receber Content-Length ou chunked completos, sem esperar o fechamento do servidor.
+- Testes reproduzíveis em `tests/run_host_tests.ps1`. Detalhes e limitações em [credenciais e HTTP](docs/CREDENTIALS_HTTP_2026-10-21.md).
+
 - Interface simplificada e paleta verde.
 - Correção do parser Xbox User/XSTS: respostas reais contêm objetos e listas, como `DisplayClaims`, rejeitados pelo antigo leitor de JSON plano.
 - Tentativa nativa de login no serviço xCloud após obtenção de XSTS para `http://gssv.xboxlive.com/`.
 - Requisição HTTPS ao endereço fixo `https://xgpuweb.gssv-play-prod.xboxlive.com/v2/login/user`, com `offeringId: xgpuweb` e cabeçalho `x-gssv-client: XboxComBrowser`.
-- Validação da resposta de login e de pelo menos uma região HTTPS do domínio Xbox. Tokens ficam temporariamente na memória do fluxo e são apagados; esta etapa ainda não mantém uma sessão jogável.
+- Validação da resposta de login e de pelo menos uma região HTTPS do domínio Xbox. O gsToken e a região selecionada ficam apenas na memória da thread de autenticação até cancelar ou expirar, com limite de 24 horas. Os tokens intermediários são apagados; esta etapa ainda não mantém uma sessão jogável.
 - Diagnósticos de HTTP e `XErr` na tela quando uma etapa de serviço falha.
 
 Esse endpoint é uma integração experimental baseada na referência de protocolo disponível no projeto, sem garantia de compatibilidade ou autorização pelo serviço.
@@ -46,7 +58,7 @@ Esse endpoint é uma integração experimental baseada na referência de protoco
 | --- | --- |
 | Compilação PowerPC Release com XDK | Passou |
 | Verificação do XEX Retail | Passou |
-| Testes simulados em Windows/MSVC 2010 | Passaram: Xbox → XSTS → login xCloud, montagem HTTP, recusa TLS, HTTP 403, região inválida e JSON inválido |
+| Testes simulados em Windows/MSVC 2010 | Passaram: autenticação simulada, expiração/limpeza de credenciais, virada do relógio, cancelamento, região padrão, fragmentação HTTP e respostas inválidas |
 | Execução da revisão atual no Xenia | Não realizada nesta revisão |
 | Consentimento real e Xbox User/XSTS/login xCloud da revisão atual | Não testados |
 | Imagem, áudio e gameplay reais | Não implementados |
@@ -56,7 +68,7 @@ Resultados de versões anteriores no Xenia não comprovam o funcionamento desta 
 SHA-256 do XEX compilado localmente nesta revisão:
 
 ```text
-4564BADDC065991536FC183EC32DE54E464ACFCB032A5102D8BCB2DA0431C1A2
+4A51BAFC00AA898709314051B659B9F897562DDF6E3B27F438602F23E5B85E36
 ```
 
 O binário não faz parte desta pasta de código-fonte. Detalhes em [login xCloud nativo](docs/CLOUD_LOGIN_NATIVE_2026-10-21.md).

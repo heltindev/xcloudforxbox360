@@ -78,7 +78,8 @@ void App::start_fortnite(){
     XboxAccount::Snapshot account=account_.snapshot();
     if(account.state==XboxAccount::WAITING_FOR_USER ||
        account.state==XboxAccount::STARTING ||
-       account.state==XboxAccount::XBOX_EXCHANGING){
+       account.state==XboxAccount::XBOX_EXCHANGING ||
+       (account.state==XboxAccount::ACCOUNT_AUTHORIZED && account.cloud_login_verified)){
         log("5. LOGIN IN PROGRESS - CODE REMAINS ON SCREEN.");
         return;
     }
@@ -285,7 +286,7 @@ void App::draw(){
     const bool retry=account.state==XboxAccount::LOGIN_FAILED ||
         account.state==XboxAccount::NOT_CONFIGURED ||
         account.state==XboxAccount::USER_CANCELLED ||
-        account.state==XboxAccount::ACCOUNT_AUTHORIZED;
+        (account.state==XboxAccount::ACCOUNT_AUTHORIZED && !account.cloud_login_verified);
     gameui::footer(screen_==HOME ? "BACK  SAIR" :
         (retry ? "A  TENTAR       B  VOLTAR       BACK  SAIR" :
                  "B  VOLTAR       BACK  SAIR"));

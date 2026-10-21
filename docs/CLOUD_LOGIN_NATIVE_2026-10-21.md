@@ -1,5 +1,7 @@
 # Native cloud service login checkpoint — 2026-10-21
 
+Historical checkpoint: token retention and HTTP reading were subsequently updated; see [current credential lifecycle](CREDENTIALS_HTTP_2026-10-21.md) and README for the current binary hash.
+
 This is authentication progress, NOT working game playback.
 
 - The background worker now chains Microsoft OAuth -> Xbox User -> service-specific XSTS -> POST https://xgpuweb.gssv-play-prod.xboxlive.com/v2/login/user.
