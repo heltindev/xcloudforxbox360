@@ -10,6 +10,23 @@ Checklists have three distinct meanings:
 - **Validated on RGH:** the required feature demonstrably ran on physical hardware.
 - **Blocked / pending:** missing functionality, unknown service access, or failed testing.
 
+## Project root cleanup (2026-10-20)
+
+- [x] Archived stale `dist/` separately from the active `Release/`, and moved the XeLL/libxenon proof-of-concept to private `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/`.
+- [x] Removed about **63.8 MiB** of regenerable IDE/build caches, including `bin/` and old intermediate `obj/` subfolders.
+- [x] Preserved native XEX build prerequisites: font input, generated embedded-font C++, required `AtgFramework.lib`, XexTool, and the entire active `Release/`.
+- [x] Updated the GitHub source-mirror script to exclude the archived XeLL experiment, checking hashes before deleting the obsolete copy.
+- [ ] Compile and verify the simplified project layout on physical RGH; the TLS/account code has not yet been validated.
+- Full inventory and archive paths: [ROOT_CLEANUP_2026-10-20.md](docs/ROOT_CLEANUP_2026-10-20.md).
+
+## Source tree consolidation (2026-10-20)
+
+- [x] Unified the former `XBOXTERMINAL/` standalone TLS experiment into the root Xbox 360 XEX sources, with MIT license and HTTPS/account adapter preserved.
+- [x] Centralized all **locally available** PS3 reference trees, DeepPlay research extracts and the PKG inspector under private `PASTACODIGOBASE/`. No local PS4 checkout existed.
+- [x] Kept the real Xbox 360 sources (`src/`, `third_party/`) separate from the PS3 research-only material.
+- [x] Updated GitHub source mirror and packaging/sync guidance without copying proprietary PS3 resources, Xbox SDK assets or account configuration.
+- [ ] Compile, link and run the unified TLS/account XEX on real RGH3. Existing error `10060` remains unverified after these changes.
+
 ## Phase 0 — Existing code / previous milestones
 
 - [x] Native Xbox 360 C++ project targeting PowerPC via Xbox 360 XDK.
@@ -38,7 +55,7 @@ Checklists have three distinct meanings:
 
 ## Phase 2 — Alternative bare-metal network track (conditional)
 
-- [x] Added isolated `experimental_xell/` boot-only libxenon example (source only; no ELF compiled).
+- [x] Added a boot-only libxenon experiment (source only; no ELF compiled), later archived privately under `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/experimental_xell/`, outside the native XEX build and GitHub source mirror.
 - [ ] Install a compatible libxenon/devkitXenon cross-compiler in the developer environment.
 - [ ] Compile the boot example separately into ELF32 and load it through already-installed XeLL.
 - [ ] Confirm screen, button and exit path on the actual Xbox 360.
@@ -50,7 +67,12 @@ Checklists have three distinct meanings:
 
 ## Phase 3 — Secure HTTPS on PowerPC
 
-- [ ] Choose and port a maintained TLS stack (mbedTLS is a candidate from GR33N, not currently integrated).
+- [x] Consolidated the previously separate `XBOXTERMINAL` MIT XboxTLS13 source into `third_party/xboxtls/`, keeping its license and Xbox 360 native sockets/crypto/X.509 sources.
+- [x] Added `src/xboxtls_backend.cpp`: an opt-in TLS 1.3 + bounded HTTP/1.1 bridge using an embedded CA root, no plain HTTP or disabled verification. **Source written; not compiled or independently security-audited.**
+- [x] Added `xex.xml`, `src/tls_trust.cpp` and a local Microsoft public-client configuration template. **Hardware compatibility not established.**
+- [ ] Independently verify XboxTLS13 certificate-chain and hostname validation, crypto entropy, clock and cancellation behavior on the RGH. Do not treat integration as validated HTTPS.
+
+- [x] Selected and included the MIT XboxTLS13 native TLS 1.3 sources in the main XDK project. **Integration is uncompiled/unverified; keep an independently reviewed alternative (such as mbedTLS) under consideration.**
 - [ ] Confirm big-endian PowerPC compiler support and memory footprint.
 - [ ] Implement cryptographic randomness from a secure entropy source on the Xbox 360.
 - [ ] Provide accurate system time and maintain a safe CA trust store.
@@ -63,6 +85,10 @@ Checklists have three distinct meanings:
 - [ ] Only mark **M2** complete after a verified HTTPS response from a real remote server on RGH.
 
 ## Phase 4 — Authorized Microsoft account sign-in
+
+- [x] Added `src/xbox_account.cpp` worker-thread OAuth Device Code attempt, actual-code-only UI and TLS/WinSock/HTTP diagnostics. **Source written, not compiled or tested online.**
+- [x] Added a safe local `auth_config.example.h`; the user's public registered application ID is kept in locally ignored `auth_config.h`.
+- [ ] Confirm a real device-code request succeeds on a physical RGH and receives a legitimate Microsoft `user_code`; the existing TCP 10060 timeout may block this.
 
 - [x] Added offline form construction and parsing for standardized OAuth device-code response fields.
 - [ ] Confirm that an independently registered client app can obtain **the necessary permissions for xCloud**.
@@ -131,9 +157,12 @@ Checklists have three distinct meanings:
 
 ## Phase 9 — User experience (inspired by xbox_launcher and PS4/PS3 clients)
 
-- [x] Reworked the XEX home screen with Xbox-green cards and a Fortnite status tile.
-- [x] Press A for roadmap, Y for Fortnite status, X for optional network diagnostics.
-- [ ] Confirm font readability and 720p/480p screen scaling on real hardware.
+- [x] Replaced the diagnostic-first home with a GR33N-inspired four-tab library, game details, favorites, settings and offline tests. **Still needs owner compilation and RGH confirmation.**
+- [x] Inspected user-supplied 9 MB PS3 **DeepPlay** development PKG (55 files; SFO title DeepPlay) without executing it; recorded its private UI resource structure. **Not the GR33N app**.
+- [x] Added a second procedural Direct3D theme **DeepPlay Midnight**, default on first boot, switchable to **GR33N Neon** in Settings. **Code written, not validated on RGH.**
+- [x] Navigation now uses D-pad to select, A to open, X to enter local demo, Y for System; the TCP/DNS probe requires System + X and does not execute at startup.
+- [x] Corrected smooth-font coordinates/scaling to match 720p-to-480p rectangle transformations in source.
+- [ ] Confirm font readability and actual 720p/480p screen scaling on real hardware.
 - [ ] Add user-approved sign-in/device code and QR screens after real OAuth integration.
 - [ ] Add a catalog or Fortnite launch button only when it can create a real session.
 - [ ] Add states for connecting, queue, session, streaming, reconnect and error.

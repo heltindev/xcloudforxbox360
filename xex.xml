@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xex>
+  <format>
+    <compressed/>
+  </format>
+  <mediatypes>
+    <harddisk/>
+    <cd/>
+    <flash/>
+    <usbmass/>
+    <mu/>
+    <network/>
+    <ram/>
+    <svod/>
+    <allpackages/>
+  </mediatypes>
+  <gameregion system=""/>
+  <titleid id="0xFFFE07D1"/>
+  <privilege id="0"/>
+  <privilege id="6"/>
+</xex>
