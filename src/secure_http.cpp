@@ -17,16 +17,18 @@ bool Transport::post_form(const char* host,const char* path,
                           const char* body,size_t count,Response* out) const {
     if(!out)return false;
     memset(out,0,sizeof(*out));
-    if(!callback_||!host||!path||!body||count==0||count>8192)
+    if(!callback_||!host||!path||!body||count==0||count>32768)
         return false;
     // The initial Device Code implementation talks to this Microsoft
     // hostname only. No arbitrary URLs or user supplied credentials.
-    if(strcmp(host,"login.microsoftonline.com")!=0)return false;
+    const bool transfer=strcmp(host,"login.live.com")==0 &&
+                        strcmp(path,"/oauth20_token.srf")==0;
+    if(!transfer && strcmp(host,"login.microsoftonline.com")!=0)return false;
     const char* allowed[]={
         "/consumers/oauth2/v2.0/devicecode",
         "/consumers/oauth2/v2.0/token"
     };
-    if(strcmp(path,allowed[0])!=0 && strcmp(path,allowed[1])!=0)
+    if(!transfer && strcmp(path,allowed[0])!=0 && strcmp(path,allowed[1])!=0)
         return false;
     if(!callback_(context_,host,path,body,count,out)) {
         secure_zero(out,sizeof(*out));

@@ -53,4 +53,4 @@ A temporary Xenia keyboard-input attempt could not be validated reliably and is 
 5. If the flow fails, share only the numbered step, the safe server error name, HTTP status, TLS error and expiry observation. **Never post passwords, access tokens, device codes or refresh tokens.**
 6. Independently repeat on the physical RGH3 and note any TCP 10060 timeout.
 
-**No ZIP files, no Github publish, no external game runtime, no invented WebRTC stream.** Private backups, screenshots and test scripts remain in `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/`, excluded from the source mirror.
+**No ZIP files, no Github publish, no external game runtime, no invented WebRTC stream.** Private backups, screenshots and test scripts remain in `REFERENCE_BASE/ARQUIVOS_ANTIGOS/`, excluded from the source mirror.

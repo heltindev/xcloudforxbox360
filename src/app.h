@@ -2,9 +2,8 @@
 #include "tcp_probe.h"
 #include "xbox_account.h"
 
-// Xbox 360 Xenon/PowerPC native UI. HOME is a game selector; LOGIN is
-// a separate screen for Microsoft Device Authorization and diagnostics.
-// This program is not a browser and does not include a xCloud media client.
+// Native Xbox 360 home and device-code screens. Detailed diagnostics stay
+// in the debug log; the controller flow exposes only enter/retry and back.
 class App {
 public:
     App();
@@ -23,11 +22,11 @@ private:
     void draw();
     void draw_home();
     void draw_login();
-    const char* network_status() const;
-    const char* activity_status();
+    void draw_network_diagnostics();
 
     Screen screen_;
     bool running_;
+    bool diagnostics_visible_;
     bool tests_ok_;
     bool flow_started_;
     bool login_launched_;

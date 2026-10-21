@@ -6,12 +6,14 @@
 #include "xkelib.h"
 #include "syssock.h"
 #include "udp_dns.h" // Reuse the Xbox 360 public DNS fallbacks.
+#include "xbox_network_ready.h"
+#include <stdio.h>
 
 namespace xboxtls {
 
 // Human-readable network diagnostics for RGH hardware and Xenia.
 // All stored values are non-sensitive. No authentication data.
-static XboxNetworkDiagnostic g_netdiag = {"NOT STARTED",0,0,0,0,0};
+static XboxNetworkDiagnostic g_netdiag = {"NOT STARTED",0,0,0,0,0,0,0,0,0,0};
 void xbox360_network_diagnostic(XboxNetworkDiagnostic* out) {
     if(out) *out=g_netdiag;
 }
@@ -46,21 +48,36 @@ Error xbox360_network_startup() {
     g_netdiag.link_flags=0;
     g_netdiag.xnaddr_flags=0;
     g_netdiag.local_ip=0;
+    g_netdiag.address_state=network_ready::WAITING;
+    g_netdiag.address_wait_ms=0;
+    g_netdiag.connect_attempts=0;
+    g_netdiag.peer_ip=0;
+    g_netdiag.connect_ms=0;
     net_stage("XNET STARTUP",0);
     XNetStartupParams xn;
     memset(&xn, 0, sizeof(xn));
     xn.cfgSizeOfStruct = sizeof(xn);
-    xn.cfgFlags = 0; // RETAIL safe; no devkit-only security bypass.
+    // The installed XDK documents this as devkit-only; secure retail XNet
+    // may ignore it. RGH Internet sockets also request SO_MARKINSECURE.
+    // Neither setting disables certificate/hostname checks in XboxTLS.
+    xn.cfgFlags = XNET_STARTUP_BYPASS_SECURITY;
     const int status=XNetStartup(&xn);
     if (status != 0) {
         net_stage("XNET STARTUP",status);
         return XT_ERR_IO;
     }
-    g_netdiag.link_flags=XNetGetEthernetLinkStatus();
-    XNADDR address;
-    memset(&address,0,sizeof(address));
-    g_netdiag.xnaddr_flags=XNetGetTitleXnAddr(&address);
-    g_netdiag.local_ip=address.ina.s_addr;
+    const network_ready::Result ready=xbox_network_ready::wait();
+    g_netdiag.link_flags=ready.sample.link_flags;
+    g_netdiag.xnaddr_flags=ready.sample.address_flags;
+    g_netdiag.local_ip=ready.sample.local_ip;
+    g_netdiag.address_state=(int)ready.state;
+    g_netdiag.address_wait_ms=ready.waited_ms;
+    char trace[160];
+    sprintf_s(trace,sizeof(trace),
+        "[XboxTLS] SYSAPP %s wait=%u link=%08X xnaddr=%08X\n",
+        network_ready::text(ready.state),ready.waited_ms,
+        ready.sample.link_flags,ready.sample.address_flags);
+    OutputDebugStringA(trace);
     net_stage("WSA STARTUP",0);
     WSADATA wd;
     const int err=WSAStartup(MAKEWORD(2, 2), &wd);
@@ -86,109 +103,125 @@ bool Xbox360SocketStream::is_open() const {
 }
 
 Error Xbox360SocketStream::connect_tcp(const char* hostname, xt_u16 port) {
-    if (!hostname || !*hostname || port==0)
-        return XT_ERR_INVALID_ARGUMENT;
+    if(!hostname || !*hostname || !port)return XT_ERR_INVALID_ARGUMENT;
     close();
+    IN_ADDR targets[4];
+    unsigned int target_count=0;
     net_stage("DNS XNET LOOKUP",0);
-    IN_ADDR resolved;
-    memset(&resolved,0,sizeof(resolved));
-    bool have_address=false;
     XNDNS* dns=0;
     const int dns_result=NetDll_XNetDnsLookup(XNCALLER_SYSAPP,hostname,0,&dns);
     if(dns_result==0 && dns) {
-        const DWORD start=GetTickCount();
+        const DWORD begin=GetTickCount();
         while(dns->iStatus==WSAEINPROGRESS &&
-              (DWORD)(GetTickCount()-start)<6000u)
-            Sleep(20);
+              (DWORD)(GetTickCount()-begin)<6000u)Sleep(20);
         if(dns->iStatus==0 && dns->cina>0) {
-            resolved=dns->aina[0];
-            g_netdiag.addresses=(unsigned int)dns->cina;
-            have_address=true;
-        } else {
-            net_stage("DNS XNET RESULT",
-                dns->iStatus==WSAEINPROGRESS ? WSAETIMEDOUT :
-                (dns->iStatus!=0 ? dns->iStatus : WSAHOST_NOT_FOUND));
-        }
-    } else {
-        net_stage("DNS XNET CALL",
-            dns_result!=0 ? dns_result : WSAGetLastError());
-    }
+            for(unsigned int i=0;i<dns->cina && target_count<4;++i) {
+                const IN_ADDR candidate=dns->aina[i];
+                bool duplicate=false;
+                for(unsigned int j=0;j<target_count;++j)
+                    if(targets[j].s_addr==candidate.s_addr)duplicate=true;
+                if(!duplicate && candidate.s_addr && candidate.s_addr!=0xffffffffu)
+                    targets[target_count++]=candidate;
+            }
+        } else net_stage("DNS XNET RESULT",
+            dns->iStatus==WSAEINPROGRESS?WSAETIMEDOUT:
+            (dns->iStatus?dns->iStatus:WSAHOST_NOT_FOUND));
+    } else net_stage("DNS XNET CALL",dns_result?dns_result:WSAGetLastError());
     if(dns)NetDll_XNetDnsRelease(XNCALLER_SYSAPP,dns);
-
-    if(!have_address) {
-        // Public DNS fallback can help Xenia if its XNet resolver returns
-        // no records. UDP/53 then TCP/53 are real DNS; never a fake address.
-        // TLS still validates the ORIGINAL hostname via SNI and X.509.
+    if(!target_count) {
         net_stage("DNS PUBLIC QUERY",0);
-        const UdpDnsResult external=udp_dns_lookup_google(hostname);
-        if(external.state!=1 || external.address_count<=0) {
-            net_stage(external.transport==2 ?
-                      "DNS PUBLIC TCP FAILED" : "DNS PUBLIC UDP FAILED",
-                      (int)external.error);
+        const UdpDnsResult fallback=udp_dns_lookup_google(hostname);
+        if(fallback.state!=1 || fallback.address_count<=0) {
+            net_stage(fallback.transport==2?"DNS PUBLIC TCP FAILED":"DNS PUBLIC UDP FAILED",
+                      (int)fallback.error);
             return XT_ERR_IO;
         }
-        resolved=external.addresses[0];
-        g_netdiag.addresses=(unsigned int)external.address_count;
-        net_stage(external.transport==2 ?
-                  "DNS PUBLIC TCP OK" : "DNS PUBLIC UDP OK",0);
-    }
-
-    net_stage("SOCKET CREATE",0);
-    socket_=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-    if(socket_==INVALID_SOCKET) {
-        net_stage("SOCKET CREATE",WSAGetLastError());
-        return XT_ERR_IO;
-    }
-    u_long nonblocking=1;
-    if(ioctlsocket(socket_,FIONBIO,&nonblocking)==SOCKET_ERROR) {
-        net_stage("SOCKET MODE",WSAGetLastError());
-        close();
-        return XT_ERR_IO;
-    }
-    sockaddr_in endpoint;
-    memset(&endpoint,0,sizeof(endpoint));
-    endpoint.sin_family=AF_INET;
-    endpoint.sin_port=htons(port);
-    endpoint.sin_addr=resolved;
-    net_stage("TCP CONNECT",0);
-    const int rc=::connect(socket_,(sockaddr*)&endpoint,sizeof(endpoint));
-    if(rc==SOCKET_ERROR) {
-        const int err=WSAGetLastError();
-        if(err!=WSAEWOULDBLOCK && err!=WSAEINPROGRESS &&
-           err!=WSAEALREADY) {
-            net_stage("TCP CONNECT",err);
-            close();
-            return XT_ERR_IO;
+        for(int i=0;i<fallback.address_count && target_count<4;++i) {
+            const IN_ADDR candidate=fallback.addresses[i];
+            bool duplicate=false;
+            for(unsigned int j=0;j<target_count;++j)
+                if(targets[j].s_addr==candidate.s_addr)duplicate=true;
+            if(!duplicate && candidate.s_addr && candidate.s_addr!=0xffffffffu)
+                targets[target_count++]=candidate;
         }
-        fd_set writable,failed;
-        FD_ZERO(&writable);
-        FD_ZERO(&failed);
-        FD_SET(socket_,&writable);
-        FD_SET(socket_,&failed);
-        timeval deadline;
-        deadline.tv_sec=8;
-        deadline.tv_usec=0;
-        net_stage("TCP SELECT",0);
-        const int selected=select(0,NULL,&writable,&failed,&deadline);
-        if(selected<=0 || !FD_ISSET(socket_,&writable)) {
-            net_stage("TCP SELECT",selected==0 ? WSAETIMEDOUT :
-                      (selected<0 ? WSAGetLastError():WSAECONNREFUSED));
-            close();
-            return XT_ERR_IO;
+    }
+    g_netdiag.addresses=target_count;
+    if(!target_count) {net_stage("DNS NO USABLE IPV4",WSAHOST_NOT_FOUND);return XT_ERR_IO;}
+    const DWORD total_begin=GetTickCount();
+    int last_error=WSAETIMEDOUT;
+    for(unsigned int index=0;index<target_count;++index) {
+        const DWORD elapsed=GetTickCount()-total_begin;
+        if(elapsed>=12000u)break;
+        // Share one bounded budget across all returned IPv4 addresses.
+        const DWORD budget=(12000u-elapsed)/(target_count-index);
+        g_netdiag.connect_attempts=index+1;
+        g_netdiag.peer_ip=targets[index].s_addr;
+        net_stage("SOCKET CREATE",0);
+        socket_=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+        if(socket_==INVALID_SOCKET) {
+            net_stage("SOCKET CREATE",WSAGetLastError());return XT_ERR_IO;
         }
-        // The Xbox SDK lacks SO_ERROR and Xenia does not implement
-        // NetDll_getpeername. Writability is only a provisional signal.
-        // The caller MUST send the TLS ClientHello and validate the
-        // authenticated TLS server response before considering HTTPS OK.
+        const BOOL public_socket=TRUE;
+        if(setsockopt(socket_,SOL_SOCKET,SO_MARKINSECURE,
+                      (const char*)&public_socket,sizeof(public_socket))==SOCKET_ERROR) {
+            net_stage("SOCKET PUBLIC POLICY",WSAGetLastError());close();return XT_ERR_IO;
+        }
+        u_long nonblocking=1;
+        if(ioctlsocket(socket_,FIONBIO,&nonblocking)==SOCKET_ERROR) {
+            net_stage("SOCKET MODE",WSAGetLastError());close();return XT_ERR_IO;
+        }
+        sockaddr_in endpoint;
+        memset(&endpoint,0,sizeof(endpoint));
+        endpoint.sin_family=AF_INET;
+        endpoint.sin_port=htons(port);
+        endpoint.sin_addr=targets[index];
+        const DWORD attempt_begin=GetTickCount();
+        bool writable=false;
+        net_stage("TCP CONNECT",0);
+        const int rc=::connect(socket_,(sockaddr*)&endpoint,sizeof(endpoint));
+        if(rc==0)writable=true;
+        else {
+            last_error=WSAGetLastError();
+            if(last_error==WSAEWOULDBLOCK || last_error==WSAEINPROGRESS ||
+               last_error==WSAEALREADY) {
+                fd_set writes,failed;
+                FD_ZERO(&writes);FD_ZERO(&failed);
+                FD_SET(socket_,&writes);FD_SET(socket_,&failed);
+                timeval deadline;
+                deadline.tv_sec=(long)(budget/1000u);
+                deadline.tv_usec=(long)((budget%1000u)*1000u);
+                net_stage("TCP SELECT",0);
+                const int selected=select(0,NULL,&writes,&failed,&deadline);
+                writable=selected>0 && !FD_ISSET(socket_,&failed) && FD_ISSET(socket_,&writes);
+                if(!writable) {
+                    last_error=selected==0?WSAETIMEDOUT:
+                        (selected<0?WSAGetLastError():WSAECONNREFUSED);
+                    net_stage("TCP SELECT",last_error);
+                }
+            } else net_stage("TCP CONNECT",last_error);
+        }
+        g_netdiag.connect_ms=(unsigned int)(GetTickCount()-total_begin);
+        const unsigned char* ip=(const unsigned char*)&targets[index].s_addr;
+        char trace[200];
+        sprintf_s(trace,sizeof(trace),
+            "[XboxTLS] %.80s %u.%u.%u.%u:%u attempt=%u/%u ms=%lu writable=%d error=%d\n",
+            hostname,ip[0],ip[1],ip[2],ip[3],(unsigned)port,index+1,target_count,
+            (unsigned long)(GetTickCount()-attempt_begin),writable?1:0,writable?0:last_error);
+        OutputDebugStringA(trace);
+        if(!writable) {close();continue;}
+        nonblocking=0;
+        if(ioctlsocket(socket_,FIONBIO,&nonblocking)==SOCKET_ERROR) {
+            net_stage("SOCKET BLOCKING",WSAGetLastError());close();return XT_ERR_IO;
+        }
+        // Writable is provisional. The original hostname, SNI and certificate
+        // validation are still required in the TLS handshake above this layer.
+        net_stage("TCP CONNECTED",0);
+        return XT_OK;
     }
-    nonblocking=0;
-    if(ioctlsocket(socket_,FIONBIO,&nonblocking)==SOCKET_ERROR) {
-        net_stage("SOCKET BLOCKING",WSAGetLastError());
-        close();
-        return XT_ERR_IO;
-    }
-    net_stage("TCP CONNECTED",0);
-    return XT_OK;
+    g_netdiag.connect_ms=(unsigned int)(GetTickCount()-total_begin);
+    net_stage("TCP ALL ADDRESSES FAILED",last_error);
+    close();
+    return XT_ERR_IO;
 }
 
 Error Xbox360SocketStream::set_io_timeouts(xt_u32 send_timeout_ms, xt_u32 receive_timeout_ms) {

@@ -1,128 +1,123 @@
-# XCloud360
+# XCloud360 — Development paused
 
-Cliente experimental de Xbox Cloud Gaming para Xbox 360 RGH/JTAG, desenvolvido em C++ para PowerPC como aplicativo nativo `.xex`.
+**I have paused XCloud360 development. Anyone interested in continuing can fork this repository.** I am making the source code and available information public for anyone who wants to investigate, fix issues, and develop the next stages.
 
-**Ainda não reproduz jogos do xCloud.** O projeto contém interface, diagnósticos de rede e código de autenticação. Sessão de jogo, WebRTC e reprodução de áudio/vídeo ainda precisam ser implementados.
+**This project DOES NOT yet play Xbox Cloud Gaming titles.** There is no complete gameplay session with working video, audio, and controls on Xbox 360. Successfully building a `.xex` does not mean streaming works.
 
-O objetivo é conectar o Xbox 360 diretamente ao serviço, **sem PC intermediário durante o uso**. O computador é usado para desenvolver e compilar; o login por código exige um navegador no celular ou em outro dispositivo. Projeto independente, sem vínculo com Microsoft, Xbox ou Epic Games.
+The original goal is a native client for RGH/JTAG Xbox 360 consoles, with no intermediary PC during streaming. A PC is required for development and compilation; approval of Microsoft sign-in uses a browser on another device.
 
-## Atualização para publicação
+## What is implemented
 
-[Checklist atualizado](ROADMAP.md) · [Título, tag sugerida e notas da pré-release](RELEASE_NOTES.md). A gestão de credenciais está parcialmente concluída: retenção e expiração prontas; integração com sessão de jogo pendente.
+- Native C++ PowerPC/big-endian application, Visual Studio 2010 solution, and a green D3D9 interface.
+- Controller navigation, DNS/TCP probes, and experimental HTTPS using XboxTLS.
+- Experimental Microsoft Device Code, Xbox User, XSTS, and xCloud login code.
+- Protected refresh-token cache with restoration and START-button deletion. Native console persistence has not yet been validated.
+- Experimental session creation, queue polling, connection, and termination code.
+- HTTP/JSON/RTP parsers and formatters, H.264 reassembly, and control messages.
+- Host tests for simulated authentication, token renewal, sessions, networking, and caching.
+- `AUTH-DIAG-A2` diagnostics screen, opened with X.
 
-Consulte o [CHANGELOG](CHANGELOG.md) para as alterações de 21/10/2026. Esta é uma atualização experimental de interface e autenticação; ainda não oferece streaming jogável. A pasta contém os fontes e a documentação, sem configuração de conta, SDK ou binários.
+**Current limitation:** the session is stopped after the test. There is no integrated player. `src/webrtc_xbox.h` contains declarations, not a functional WebRTC peer implementation.
 
-## Interface e funcionamento direto
+## Known issues and work needed
 
-A interface do XEX usa fundo escuro, destaques verdes e poucos textos: Fortnite, entrada da conta e status. No login aparecem o endereço oficial, o código e o tempo restante. Diagnósticos de falha continuam disponíveis quando necessários.
+- [ ] **Validate networking on Xbox 360:** investigate TCP timeout `10060`; record addresses, DNS, connect, TLS, and HTTP read results. The root cause is not confirmed.
+- [ ] **Validate real sign-in:** confirm the application's permissions, Microsoft consent, Xbox User, XSTS, and xCloud access for this revision.
+- [ ] **Validate the cache on console:** verify native protection, writing, restoration after restart, rotation, and deletion. Windows tests use DPAPI and do not prove Xbox protection.
+- [ ] **Validate a real session:** request a game, track the queue, and confirm connection and cleanup. Current tests use simulated responses.
+- [ ] **Keep sessions running:** replace test-only teardown with continuous execution once a media pipeline exists, including credential renewal and cancellation.
+- [ ] **Implement signaling:** exchange SDP, ICE candidates, and media configuration according to the service protocol.
+- [ ] **Integrate WebRTC:** implement or port ICE, STUN/TURN, DTLS, SRTP/SRTCP, and SCTP/DataChannels.
+- [ ] **Receive and organize media:** packet ordering, jitter buffers, RTCP, loss recovery, and memory bounds.
+- [ ] **Decode H.264:** choose and port a compatible decoder. No hardware-decoder API has been confirmed for this codebase.
+- [ ] **Display video:** render decoded frames using D3D9 textures.
+- [ ] **Decode Opus:** feed XAudio2 and synchronize audio/video.
+- [ ] **Send controls:** connect the existing message formatters to a real remote channel.
+- [ ] **Handle errors:** reconnect, cancel, expire credentials, and release resources safely.
+- [ ] **Test on hardware:** measure memory, performance, latency, stability, and differences from Xenia.
+- [ ] **Validate complete gameplay:** video, audio, and controls directly on the Xbox 360.
 
-**Requisito do projeto:** toda conexão de streaming deve ocorrer no Xbox 360. A implementação não usa PC, proxy ou retransmissor externo para processar o jogo. O PC serve para compilação e testes; o navegador do celular serve para aprovar o login. Esse é o objetivo de arquitetura, não uma confirmação de streaming funcional nesta versão.
+**Suggested order:** network/sign-in/cache → session → signaling/WebRTC → media/controls → hardware testing.
 
-## Estado atual — 21/10/2026
+The project owner reported that earlier attempts did not work. There is insufficient evidence to mark network connectivity, full login, or streaming as validated in this revision. See the [current diagnosis](docs/CURRENT_DIAGNOSIS.md), [technical blockers](docs/XEX_GAPS.md), and [validation status](docs/VALIDATION_CURRENT.md).
 
-| Componente | Implementação e validação |
-| --- | --- |
-| Interface nativa | Tema verde, poucos textos, seleção de Fortnite e tela de login por código |
-| Renderização | Solicita 1080p, com alternativas em 720p/480p; fonte incorporada no XEX durante a compilação local |
-| Microsoft Device Code | Implementado com HTTPS; versões anteriores obtiveram código real no Xenia |
-| Xbox User / XSTS | Código implementado, com leitura de respostas JSON aninhadas e testes simulados |
-| Login no serviço xCloud | Novo encadeamento após XSTS válido; endpoint `/v2/login/user`, validação de token, validade e regiões retornadas |
-| Credenciais xCloud | Mantidas somente em memória, com expiração e limpeza; ainda sem módulo de sessão consumidor |
-| Sessão de jogo | Não implementada |
-| WebRTC / ICE / DTLS / SRTP / SCTP | Não implementados como transporte funcional |
-| Vídeo H.264 e áudio Opus | Sem decodificadores e reprodução integrados |
-| Controle remoto | Formatadores e testes locais; sem canal de gameplay ativo |
-| Xbox 360 físico | Última revisão não testada; timeout TCP 10060 relatado anteriormente continua sem validação de correção |
+## Build with Visual Studio 2010
 
-**Fortnite é apenas a entrada disponível na interface. Selecioná-lo inicia os testes e a autenticação, não uma partida.**
+This package contains the active sources, required source dependencies, tests, scripts, solution, and documentation. **Visual Studio 2010 alone is not enough:** separately install a compatible, authorized Xbox 360 SDK/XDK, including VS2010 Xbox 360 integration, the PowerPC compiler, libraries, and ATG samples.
 
-## Alterações mais recentes
+Local requirements:
 
-- Credenciais xCloud com proprietário único, expiração e limpeza ao cancelar.
-- Cancelamento entre as requisições de autenticação e bloqueio de login duplicado enquanto autenticado.
-- Leitura HTTPS conclui ao receber Content-Length ou chunked completos, sem esperar o fechamento do servidor.
-- Testes reproduzíveis em `tests/run_host_tests.ps1`. Detalhes e limitações em [credenciais e HTTP](docs/CREDENTIALS_HTTP_2026-10-21.md).
+- Windows with Visual Studio 2010 C++ and the **Xbox 360** platform installed by the XDK.
+- `XEDK` environment variable pointing to the XDK installation.
+- MSBuild 4.0 and Windows PowerShell 5.1.
+- `Source/Samples/Common/AtgFramework2010.vcxproj` and font tools from XDK samples.
+- For Retail conversion/inspection: install XexTool separately at `tools/xextool/XexTool-windows-x64/XexTool.exe`.
 
-- Interface simplificada e paleta verde.
-- Correção do parser Xbox User/XSTS: respostas reais contêm objetos e listas, como `DisplayClaims`, rejeitados pelo antigo leitor de JSON plano.
-- Tentativa nativa de login no serviço xCloud após obtenção de XSTS para `http://gssv.xboxlive.com/`.
-- Requisição HTTPS ao endereço fixo `https://xgpuweb.gssv-play-prod.xboxlive.com/v2/login/user`, com `offeringId: xgpuweb` e cabeçalho `x-gssv-client: XboxComBrowser`.
-- Validação da resposta de login e de pelo menos uma região HTTPS do domínio Xbox. O gsToken e a região selecionada ficam apenas na memória da thread de autenticação até cancelar ou expirar, com limite de 24 horas. Os tokens intermediários são apagados; esta etapa ainda não mantém uma sessão jogável.
-- Diagnósticos de HTTP e `XErr` na tela quando uma etapa de serviço falha.
+The SDK/XDK, Microsoft libraries, proprietary tools, SDK-generated fonts, personal settings, tokens, and Git history are not included. The build generates SDK resources from the local installation.
 
-Esse endpoint é uma integração experimental baseada na referência de protocolo disponível no projeto, sem garantia de compatibilidade ou autorização pelo serviço.
+### Build from Visual Studio 2010
 
-## O que foi testado
-
-| Verificação da revisão atual | Resultado |
-| --- | --- |
-| Compilação PowerPC Release com XDK | Passou |
-| Verificação do XEX Retail | Passou |
-| Testes simulados em Windows/MSVC 2010 | Passaram: autenticação simulada, expiração/limpeza de credenciais, virada do relógio, cancelamento, região padrão, fragmentação HTTP e respostas inválidas |
-| Execução da revisão atual no Xenia | Não realizada nesta revisão |
-| Consentimento real e Xbox User/XSTS/login xCloud da revisão atual | Não testados |
-| Imagem, áudio e gameplay reais | Não implementados |
-
-Resultados de versões anteriores no Xenia não comprovam o funcionamento desta revisão nem a compatibilidade com o console físico. Os testes simulados não acessam uma conta e não comprovam streaming.
-
-SHA-256 do XEX compilado localmente nesta revisão:
-
-```text
-4A51BAFC00AA898709314051B659B9F897562DDF6E3B27F438602F23E5B85E36
-```
-
-O binário não faz parte desta pasta de código-fonte. Detalhes em [login xCloud nativo](docs/CLOUD_LOGIN_NATIVE_2026-10-21.md).
-
-## Compilação
-
-É necessário configurar localmente o Xbox 360 SDK/XDK e as ferramentas de compilação compatíveis com o projeto Visual Studio 2010. `XEDK` deve apontar para a instalação do SDK. O script também espera `tools/xextool/XexTool-windows-x64/XexTool.exe`, que não é distribuído nesta pasta.
+1. Open PowerShell with `XEDK` configured and go to the project folder.
+2. Run:
 
 ```powershell
-Copy-Item .\auth_config.example.h .\auth_config.h
-# Configure seu próprio Application (client) ID no arquivo local.
-# Para solicitar acesso Xbox, defina XCLOUD360_ENABLE_XBOX_LIVE_SCOPE como 1.
-.\build_release.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\prepare_vs2010.ps1
 ```
 
-O exemplo público mantém a solicitação Xbox desativada (`0`). Ativá-la solicita `xboxlive.signin`; a Microsoft precisa permitir e conceder o escopo. O serviço pode recusar o aplicativo ou a conta. Não substitua o ID por um de outro aplicativo.
+3. Open `XCLOUDFORXBOX360.sln` in Visual Studio 2010.
+4. Select **Release | Xbox 360** and choose **Build Solution / F7**.
 
-Saída local: `Release/XCloud360.xex`. A fonte é incorporada durante o build. O script `generate_hd_font.ps1` pode gerar o atlas de maior definição quando as ferramentas e fontes locais necessárias estão disponíveis. Arquivos de fontes, SDK e ferramentas proprietárias não são incluídos no código público.
+Preparation creates `auth_config.h` from the example only if the file does not exist, generates the font, and builds ATG locally. The project also runs this preparation before builds. The example client ID is blank/intentionally invalid: it allows interface compilation but **does not enable sign-in**.
 
-## Uso experimental
+### Build from PowerShell
 
-1. Execute o `.xex` em um ambiente compatível de testes.
-2. Pressione **A** para iniciar a verificação de rede e solicitar o código Microsoft.
-3. Se o servidor emitir um código, use exatamente o endereço mostrado e confirme a conta no navegador.
-4. Se a Microsoft conceder o escopo Xbox, o fluxo tentará Xbox User, XSTS e login no serviço xCloud.
-5. Consulte a etapa e os códigos de erro apresentados. Mesmo que o login seja confirmado, esta versão ainda não inicia o jogo.
+SDK-only build without XexTool:
 
-| Botão | Ação |
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build_release.ps1 -SdkOnly
+```
+
+Build with Retail inspection and conversion, after installing XexTool:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build_release.ps1
+```
+
+Output: `Release/XCloud360.xex`. The `-SdkOnly` option does not guarantee Retail format or operation on RGH. See the [VS2010 build guide](docs/BUILD_VS2010.md).
+
+### Sign-in configuration
+
+Edit only your local `auth_config.h`, using the application/client ID of a Microsoft application you control that supports Device Code. The example keeps `XCLOUD360_ENABLE_XBOX_LIVE_SCOPE=0`. Requesting `xboxlive.signin` requires appropriate permissions; changing the flag does not guarantee Xbox/xCloud authorization. Do not use third-party app IDs to bypass permissions.
+
+### Windows tests
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run_host_tests.ps1
+```
+
+These tests do not launch games or prove connectivity to the service. Windows cache tests use DPAPI; the Xbox uses a different implementation.
+
+## Repository layout
+
+| Path | Contents |
 | --- | --- |
-| A | Entrar ou tentar novamente |
-| B | Cancelar e voltar |
-| BACK | Sair |
-| X, na tela de login | Repetir diagnóstico de rede |
-| Y | Repetir testes locais |
+| `XCLOUDFORXBOX360.sln`, `XCloud360.vcxproj`, `xex.xml` | VS2010 solution, Xbox 360 build, and XEX configuration |
+| `src/` | Active application sources |
+| `third_party/` | Available source dependencies and notices |
+| `tests/` | Host tests |
+| `docs/` | Diagnostics, limitations, and historical records |
+| `REFERENCE_BASE/` | Compact AI reference summary and source map only |
+| `prepare_vs2010.ps1`, `build_release.ps1` | Preparation and compilation |
+| `AI_CONTEXT.md` | Short technical context |
 
-Não informe senha Microsoft no aplicativo nem publique códigos de login, tokens ou a configuração local.
+The original bulk research files are not needed to build and are not included. Older documents describe their respective historical revisions.
 
-## Organização do código
+## For contributors and forks
 
-| Caminho | Função |
-| --- | --- |
-| `src/app.cpp`, `src/harissa_style_ui.*` | Interface e navegação |
-| `src/platform_xbox360.cpp` | Renderização e entrada do Xbox 360 |
-| `src/xbox_account.cpp`, `src/xbox_device_flow.cpp` | Login Microsoft em segundo plano |
-| `src/xbox_live_exchange.cpp` | Xbox User, XSTS e tentativa de login xCloud |
-| `src/xboxtls_backend.cpp`, `src/http_wire.cpp` | HTTPS e montagem de requisições |
-| `src/region_catalog.cpp` | Validação das regiões do serviço |
-| `src/xcloud_*`, `src/h264_rtp_receiver.cpp` | Experimentos de protocolos, controle e remontagem RTP/H.264; não incluem um player funcional |
-| `src/protocol_selftest.cpp` | Testes locais executados na inicialização do aplicativo |
-| `third_party/` | Dependências e respectivas licenças |
-| `docs/` | Relatórios e registros técnicos, incluindo marcos históricos |
+You may continue development, fix issues, and publish your progress in a fork. Preserve the credits and notices/licenses of third-party components. This permission applies only to my contributions; it does not change rights to dependencies or Microsoft materials. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Próximas etapas
+I recommend starting with a reproducible networking test on a physical Xbox 360. Record the source revision, error, and result for every step. Do not claim playable support until an entire gameplay session is verified.
 
-Validar a autorização real e a rede do console, implementar o ciclo de vida da sessão xCloud e integrar WebRTC, decodificadores de vídeo/áudio e o canal de controle. Um login confirmado não substitui essas etapas.
+Thank you to everyone interested in carrying on this research and helping keep the Xbox 360 alive. 🎮
 
-Consulte [status](STATUS_DO_PROJETO.md), [roadmap](ROADMAP.md) e [referências](docs/REFERENCES.md). Registros antigos em `docs/` descrevem a versão da data indicada; não são confirmação de funcionamento da revisão atual.
+Independent project, not affiliated with Microsoft, Xbox, or Epic Games.

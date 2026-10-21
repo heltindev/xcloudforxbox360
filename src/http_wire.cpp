@@ -50,7 +50,7 @@ bool make_request(const char* method,const char* host,const char* path,
     if (!out || capacity<100 || !written || !valid_host(host) ||
         !valid_path(path) || !method) return false;
     if (strcmp(method,"GET")!=0 && strcmp(method,"HEAD")!=0 &&
-        strcmp(method,"POST")!=0) return false;
+        strcmp(method,"POST")!=0 && strcmp(method,"DELETE")!=0) return false;
     if (body_length>MAX_BODY || (body_length!=0 && !body) ||
         (!body && strcmp(method,"POST")==0 && body_length!=0))
         return false;
@@ -116,6 +116,35 @@ bool make_cloud_login_request(const char* body,size_t bytes,
     memmove(out+at+n,out+at,*written-at+1);
     memcpy(out+at,extra,n);*written+=n;
     return true;
+}
+bool make_cloud_session_request(const char* method,const char* host,
+                                const char* path,const char* bearer,
+                                const char* body,size_t bytes,
+                                char* out,size_t capacity,size_t* written) {
+    if(!bearer || !out || !written)return false;
+    size_t token_bytes=0;
+    while(token_bytes<7000 && bearer[token_bytes]) {
+        const unsigned char c=(unsigned char)bearer[token_bytes++];
+        if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||
+             (c>='0'&&c<='9')||c=='-'||c=='_'||c=='.'||
+             c=='+'||c=='/'||c=='='||c=='~'))return false;
+    }
+    if(token_bytes<12 || token_bytes>=7000)return false;
+    if(!make_request(method,host,path,"application/json",body,bytes,
+                     out,capacity,written))return false;
+    static const char prefix[]="Authorization: Bearer ";
+    static const char suffix[]="\r\nx-gssv-client: XboxComBrowser\r\n";
+    const size_t extra=sizeof(prefix)-1+token_bytes+sizeof(suffix)-1;
+    char* separator=strstr(out,"\r\n\r\n");
+    if(!separator || *written+extra>=capacity) {
+        out[0]=0;*written=0;return false;
+    }
+    const size_t at=(size_t)(separator-out)+2;
+    memmove(out+at+extra,out+at,*written-at+1);
+    memcpy(out+at,prefix,sizeof(prefix)-1);
+    memcpy(out+at+sizeof(prefix)-1,bearer,token_bytes);
+    memcpy(out+at+sizeof(prefix)-1+token_bytes,suffix,sizeof(suffix)-1);
+    *written+=extra;return true;
 }
 bool parse_response(const char* data,size_t length,Response* response) {
     if (!data || !response || length<16 || length>MAX_HEADERS+MAX_BODY) return false;

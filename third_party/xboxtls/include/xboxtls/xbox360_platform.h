@@ -37,6 +37,11 @@ struct XboxNetworkDiagnostic {
     unsigned long link_flags;
     unsigned long xnaddr_flags;
     unsigned long local_ip;
+    int address_state;
+    unsigned int address_wait_ms;
+    unsigned int connect_attempts;
+    unsigned long peer_ip;
+    unsigned int connect_ms;
 };
 void xbox360_network_diagnostic(XboxNetworkDiagnostic* result);
 Error xbox360_network_startup();

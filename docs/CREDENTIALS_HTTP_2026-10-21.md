@@ -1,51 +1,51 @@
-# Credenciais e leitura HTTPS — 21/10/2026
+# Credentials and HTTPS response handling — 2026-10-21
 
-Esta revisão prepara o login para a futura sessão de jogo. Não implementa streaming.
+This revision prepares sign-in for a future gameplay session. **It does not implement streaming.**
 
-## Alterações
+## Changes
 
-- `CloudCredentials` mantém gsToken e hostname regional somente na thread de autenticação, sem cópias na interface, nos logs ou em disco.
-- A região padrão válida é priorizada; na ausência dela, usa-se a primeira região HTTPS Xbox válida.
-- A validade usa o relógio monotônico de 32 bits, inclusive sua virada. A retenção é limitada à validade fornecida pelo serviço e a no máximo 24 horas. Não há renovação automática.
-- Cancelar, expirar, falhar uma nova troca ou destruir o proprietário apaga a credencial.
-- O cancelamento é consultado antes de cada próxima requisição Xbox/XSTS/xCloud e antes de aceitar o token. Uma chamada HTTPS já em andamento ainda depende de seus timeouts.
-- O fluxo apaga as credenciais Microsoft/device após a troca; apenas gsToken permanece enquanto a tela está autenticada.
-- A interface evita iniciar outro login enquanto a credencial atual está mantida.
-- Respostas com Content-Length completo ou chunked completo encerram a leitura HTTPS sem esperar EOF. Codificações não suportadas, cabeçalhos de transferência duplicados e combinações ambíguas são rejeitados.
+- `CloudCredentials` keeps the gsToken and regional hostname only on the authentication thread, with no copies in the UI, logs, or on disk.
+- A valid default region takes priority; otherwise the first valid Xbox HTTPS region is selected.
+- Expiration uses a monotonic 32-bit clock, including rollover. Retention is limited by the service-supplied expiration and capped at 24 hours. There is no automatic renewal.
+- Cancellation, expiration, failed new exchange, or owner destruction clears the credential.
+- Cancellation is checked before each following Xbox/XSTS/xCloud request and before accepting the token. An HTTPS call already in progress still depends on its own timeouts.
+- Microsoft/device credentials are cleared after exchange; only the gsToken remains while the screen is authenticated.
+- The UI avoids starting another sign-in while the current credential is retained.
+- HTTPS reading ends as soon as the full Content-Length body or complete chunked response arrives, without waiting for EOF. Unsupported encodings, duplicate transfer headers, and ambiguous combinations are rejected.
 
-O leitor chunked continua sem suporte a extensões e trailers. Respostas sem tamanho explícito continuam dependendo de EOF.
+The chunked reader still does not support extensions or trailers. Responses without explicit length still rely on EOF.
 
-## Verificação reproduzível
+## Reproducible verification
 
-Execute no Windows com Visual Studio 2010:
+Run on Windows using Visual Studio 2010:
 
 ```powershell
 .\tests\run_host_tests.ps1
 ```
 
-O parâmetro `-VcVars` permite indicar outra localização do ambiente do compilador compatível. Os testes usam respostas simuladas, sem conta e sem rede.
+The `-VcVars` parameter can specify another compatible compiler environment. Tests use simulated responses without an account or network.
 
-Cobertura: cadeia Xbox/XSTS/xCloud, preferência de região, expiração exata, virada do relógio, limpeza de credenciais, cancelamento em todas as fronteiras da troca, falhas TLS/HTTP, validade fracionária inválida, respostas fragmentadas, chunked e cabeçalhos HTTP ambíguos.
+Coverage includes the Xbox/XSTS/xCloud chain, region preference, exact expiration, clock rollover, credential clearing, cancellation at every exchange boundary, TLS/HTTP failures, invalid fractional expiration, fragmented responses, chunked encoding, and ambiguous HTTP headers.
 
-## Pendências reais
+## Outstanding real-world work
 
-| Etapa | Situação |
+| Stage | Status |
 | --- | --- |
-| Consentimento e login real | Não validados nesta revisão |
-| TCP 10060 no hardware | Ainda não diagnosticado com esta revisão |
-| Credenciais em memória | Implementadas; ainda sem consumidor de sessão |
-| Criar partida, fila, conectar e encerrar | Não implementados |
-| WebRTC / ICE / DTLS / SRTP / SCTP | Sem transporte integrado |
-| Vídeo H.264 / áudio Opus | Sem decodificação e reprodução integradas |
-| Controle remoto | Sem canal real conectado |
-| Xenia e Xbox 360 físico | Revisão ainda não executada |
+| Real consent and sign-in | Not validated in this revision |
+| TCP 10060 on hardware | Not yet diagnosed with this revision |
+| In-memory credentials | Implemented; at this historical stage, no session consumer |
+| Create game, queue, connect, terminate | Not implemented at this historical stage |
+| WebRTC / ICE / DTLS / SRTP / SCTP | No integrated transport |
+| H.264 video / Opus audio | No integrated decoding or playback |
+| Remote controls | No real channel connected |
+| Xenia and physical Xbox 360 | This revision was not run |
 
-A correção da espera HTTP só atua depois de estabelecer TLS e receber uma resposta. Ela não corrige automaticamente um timeout na conexão TCP inicial. Para localizar esse bloqueio, registrar etapa, código WSA/TLS, flags de rede e resultado DNS no console, sem publicar credenciais.
+The HTTP read fix takes effect only after establishing TLS and receiving a response. It does not automatically fix an initial TCP connection timeout. Diagnose that blocker by recording stage, WSA/TLS error, network flags, and DNS results on the console, without exposing credentials.
 
-Não se aloca uma máquina de jogo nesta revisão. O próximo módulo precisa consumir a credencial na mesma thread, verificar sua validade antes de cada requisição, tratar os estados de fila e encerrar a sessão no cancelamento. Depois ainda serão necessários negociação WebRTC, decodificadores e testes reais.
+This revision does not allocate a game machine. The next module must consume credentials on the same thread, check validity before each request, handle queue states, and terminate sessions on cancellation. WebRTC negotiation, decoders, and real tests are still required afterward.
 
-## Resultado desta compilação
+## Build result for this revision
 
-Testes simulados MSVC 2010: passaram. Compilação PowerPC Release e verificação Retail: passaram. Não executado no Xenia ou Xbox 360 físico.
+Simulated MSVC 2010 tests: passed. PowerPC Release build and Retail inspection: passed. Not executed on Xenia or a physical Xbox 360.
 
 SHA-256: 4A51BAFC00AA898709314051B659B9F897562DDF6E3B27F438602F23E5B85E36

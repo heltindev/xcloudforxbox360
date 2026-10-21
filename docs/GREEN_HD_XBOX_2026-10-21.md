@@ -48,7 +48,7 @@ The previous `XBOX LIVE SCOPE NOT REQUESTED` screen was a **true permission prec
 ## Private test artifacts
 
 Screenshots, XDK compiler logs, prior-version snapshots and generated XDK font artifacts are stored privately under:
-`PASTACODIGOBASE/ARQUIVOS_ANTIGOS/`, `assets/Fonts/` and `obj/`.
+`REFERENCE_BASE/ARQUIVOS_ANTIGOS/`, `assets/Fonts/` and `obj/`.
 
 Binary output: `Release/XCloud360.xex`  
 SHA-256: `A560698A20E4495F5434DF1ADD93FFEE8DBFE256E6ABE459EE826267709D7616`

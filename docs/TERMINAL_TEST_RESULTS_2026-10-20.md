@@ -2,7 +2,7 @@
 
 ## What changed
 
-- Backed up the former graphical Games/Favourites/DeepPlay/GR33N `src/app.cpp`, `src/app.h`, project XML and docs into the ignored `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/DASHBOARD_GR33N_20261020/` folder with SHA-256 verification.
+- Backed up the former graphical Games/Favourites/DeepPlay/GR33N `src/app.cpp`, `src/app.h`, project XML and docs into the ignored `REFERENCE_BASE/ARQUIVOS_ANTIGOS/DASHBOARD_GR33N_20261020/` folder with SHA-256 verification.
 - Replaced `src/app.cpp` and `src/app.h` with a compact Direct3D-rendered **text terminal** for Xbox 360 Xenon PowerPC. It has no game grid, covers, dashboard tabs, web engine, JavaScript, or PC runtime dependency.
 - On startup, executes local protocol self-tests and regional JSON tests. Controller **Y** reruns them, **X** starts asynchronous DNS/TCP checks, **A** attempts Microsoft Device Code login, **B** cancels sign-in and **BACK** exits.
 - Corrected a Visual Studio object-file name collision: the XCloud360 renderer and MIT XboxTLS13 socket layer both used `platform_xbox360.cpp` and generated the same object filename. The TLS file now uses `$(IntDir)xboxtls_platform_xbox360.obj`.

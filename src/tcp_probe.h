@@ -42,6 +42,8 @@ public:
     unsigned long link_flags() const;
     unsigned long address_flags() const;
     unsigned long local_ip() const;
+    int address_state() const;
+    unsigned long address_wait_ms() const;
 private:
     static DWORD WINAPI worker(LPVOID context);
     void perform();
@@ -70,4 +72,6 @@ private:
     volatile LONG link_flags_;
     volatile LONG address_flags_;
     volatile LONG local_ip_;
+    volatile LONG address_state_;
+    volatile LONG address_wait_ms_;
 };

@@ -46,14 +46,17 @@ dist/
 
 # Temporary GPL research checkout and user-supplied PS3 code base
 # Reference-only original PS3/PS4 source and extracted assets are all private.
-# The entire reference directory must never be committed to GitHub.
-/PASTACODIGOBASE/
+# Only the three curated context files below are public; original references remain private.
+/REFERENCE_BASE/*
+!/REFERENCE_BASE/AI_REFERENCE.md
+!/REFERENCE_BASE/SOURCE_MAP.json
+!/REFERENCE_BASE/refresh_context.ps1
 /research/
 /GR33N-main/
 /research_pkg/
 /research_tools/
 
-# Archived XeLL/libxenon files are already covered by /PASTACODIGOBASE/.
+# Archived XeLL/libxenon files are already covered by /REFERENCE_BASE/.
 
 # Backups, snapshots and local exports
 /archive/
@@ -61,3 +64,13 @@ dist/
 *~
 Thumbs.db
 Desktop.ini
+
+# Persistent credentials are local to the executable and must never be published.
+*.authcache*
+
+# Local IDE state and historical archives
+/.vscode/
+*.rar
+
+# Clean source snapshot prepared for manual GitHub upload
+/GITHUB-PAUSADO/

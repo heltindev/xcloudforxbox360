@@ -2,6 +2,8 @@
 #include <xtl.h>
 #include <winsockx.h>
 #include <string.h>
+#include "xkelib.h"
+#include "syssock.h"
 
 // Google Public DNS is an OPTIONAL control test, not a change to the
 // Xbox 360 dashboard network settings. Normal DNS uses XNetDnsLookup.
@@ -98,6 +100,17 @@ UdpDnsResult try_server(const char* hostname, const char* server) {
         result.error_source = 1;
         return result;
     }
+    // Use the same SYSAPP caller as the TLS network startup. Mixing title
+    // sockets with SYSAPP startup can otherwise produce WSANOTINITIALISED.
+    const BOOL public_socket = TRUE;
+    if (setsockopt(sock, SOL_SOCKET, SO_MARKINSECURE,
+                   (const char*)&public_socket,
+                   sizeof(public_socket)) == SOCKET_ERROR) {
+        result.error = (unsigned long)WSAGetLastError();
+        result.error_source = 1;
+        closesocket(sock);
+        return result;
+    }
     sockaddr_in target;
     memset(&target,0,sizeof(target));
     target.sin_family = AF_INET;
@@ -110,7 +123,7 @@ UdpDnsResult try_server(const char* hostname, const char* server) {
         result.error = 0xE001;
         result.error_source = 5;
     } else if (sendto(sock,(const char*)buffer,packetSize,0,
-                      (const sockaddr*)&target,sizeof(target)) == SOCKET_ERROR) {
+                      (sockaddr*)&target,sizeof(target)) == SOCKET_ERROR) {
         result.error = (unsigned long)WSAGetLastError();
         result.error_source = 2;
     } else {
@@ -129,8 +142,10 @@ UdpDnsResult try_server(const char* hostname, const char* server) {
             sockaddr_in sender;
             int senderLen = sizeof(sender);
             memset(&sender,0,sizeof(sender));
-            const int n = recvfrom(sock,(char*)buffer,sizeof(buffer),0,
-                                   (sockaddr*)&sender,&senderLen);
+            // Use recvfrom, which Xenia implements. WSARecvFrom is still
+            // an emulator stub; xkelib's fromlen ABI is corrected to int*.
+            const int n=recvfrom(sock,(char*)buffer,sizeof(buffer),0,
+                                 (sockaddr*)&sender,&senderLen);
             if (n == SOCKET_ERROR) {
                 result.error = (unsigned long)WSAGetLastError();
                 result.error_source = 4;
@@ -191,6 +206,15 @@ UdpDnsResult try_tcp_server(const char* hostname,const char* server) {
         result.error_source=6;
         return result;
     }
+    const BOOL public_socket=TRUE;
+    if(setsockopt(sock,SOL_SOCKET,SO_MARKINSECURE,
+                  (const char*)&public_socket,
+                  sizeof(public_socket))==SOCKET_ERROR) {
+        result.error=(unsigned long)WSAGetLastError();
+        result.error_source=6;
+        closesocket(sock);
+        return result;
+    }
     u_long enabled=1;
     if(ioctlsocket(sock,FIONBIO,&enabled)==SOCKET_ERROR) {
         result.error=(unsigned long)WSAGetLastError();
@@ -220,7 +244,7 @@ UdpDnsResult try_tcp_server(const char* hostname,const char* server) {
         wait.tv_sec=3;
         wait.tv_usec=0;
         const int n=select(0,NULL,&writable,&failed,&wait);
-        if(n<=0 || !FD_ISSET(sock,&writable)) {
+        if(n<=0 || FD_ISSET(sock,&failed) || !FD_ISSET(sock,&writable)) {
             result.error=n==0 ? WSAETIMEDOUT :
                          (n<0 ? (unsigned long)WSAGetLastError() :
                                 (unsigned long)WSAECONNREFUSED);

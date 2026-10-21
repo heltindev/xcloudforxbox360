@@ -409,11 +409,11 @@ extern "C" {
 	NetDll_recvfrom(
 		IN		XNCALLER_TYPE xnc,
 		IN		SOCKET s,
-		IN		const char* buf,
+		OUT		char* buf,
 		IN		int len,
 		IN		int flags,
 		IN OUT	void* from,
-		IN		int fromlen
+		IN OUT	int* fromlen
 	);
 
 	NTSYSAPI

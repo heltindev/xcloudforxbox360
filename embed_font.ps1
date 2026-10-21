@@ -36,7 +36,7 @@ if ((Test-Path -LiteralPath $generated) -and
     (Get-Item -LiteralPath $font).LastWriteTimeUtc -and
     ((Get-Content -LiteralPath $generated -Tail 3) -join "\n") -match
       ('g_embedded_font_design_points = '+$fontPoints+'u')) {
-    Write-Host 'Fonte interna ja gerada: nenhum arquivo XPR externo sera necessario.'
+    Write-Host 'Embedded font already generated: no external XPR file needed.'
     return
 }
 
@@ -64,5 +64,5 @@ for ($i=0; $i -lt $bytes.Length; $i+=16) {
 [void]$builder.AppendLine(('extern const unsigned int g_embedded_font_design_points = {0}u;' -f $fontPoints))
 [System.IO.File]::WriteAllText($generated,$builder.ToString(),
                                [System.Text.Encoding]::ASCII)
-Write-Host ('Fonte XPR incorporada na unidade de compilacao local: ' + $generated)
-Write-Host 'Nao publicar o .cpp gerado: contem recurso da SDK Microsoft.'
+Write-Host ('XPR font embedded in local compilation unit: ' + $generated)
+Write-Host 'Do not publish the generated .cpp: it contains a Microsoft SDK resource.'

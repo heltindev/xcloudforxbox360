@@ -50,7 +50,7 @@ Reference: Microsoft identity platform OAuth Device Code documentation and legac
 
 The successful OAuth response was accepted by the XEX's TLS-protected token parser, and the token was erased on worker exit; it was **not independently redeemed against Xbox Live/XSTS**. Consequently, the successful sign-in is not evidence that Xbox Cloud Gaming streaming is functional or authorized.
 
-Private screenshots and test scripts are kept only in `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/`, not published.
+Private screenshots and test scripts are kept only in `REFERENCE_BASE/ARQUIVOS_ANTIGOS/`, not published.
 
 ## Next functional milestones
 

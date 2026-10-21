@@ -1,15 +1,17 @@
-# Preparação da pré-release
+> Development paused by the author on 2026-10-21. Forks are welcome. xCloud is not playable yet. See README.md and docs/VALIDATION_HANDOFF.md; the earlier release notes follow.
 
-## Campos do GitHub
+# Pre-release preparation
 
-- Tag sugerida: `v0.10.0-alpha.2`.
+## GitHub release fields
+
+- Suggested tag: `v0.10.0-alpha.2`.
 - Release title: **XCloud360 v0.10 Alpha 2 — Xbox 360 PowerPC Homebrew**.
-- Previous tag: `v0.10.0-alpha.1`, conforme a release anterior informada.
+- Previous tag: `v0.10.0-alpha.1`, as reported in the preceding release.
 - Release label: **None**.
-- Pre-release: **marcar**.
-- Tag e publicação não foram criadas por esta edição.
+- Pre-release: **checked**.
+- No tag or release was published by this edit.
 
-## Release description — copiar a partir daqui
+## Release description — copy from here
 
 # XCloud360 v0.10 Alpha 2 — Xbox 360 PowerPC Homebrew
 
@@ -21,7 +23,26 @@ This update advances native authentication, in-memory credential management and 
 >
 > Authentication code is implemented, but real Microsoft/Xbox/xCloud authorization has not been validated in this revision. Cloud streaming and Fortnite gameplay are not available. The PowerPC build and offline tests passed; this revision still requires execution on Xenia and real Xbox 360 hardware.
 
+The project root is now the only active source tree. Experimental session creation, queue handling, connect, renewal and cleanup code is included; the session test ends without media playback. See docs/XEX_GAPS.md and docs/VALIDATION_CURRENT.md.
+
 ## What's New
+
+### Protected login cache
+
+- Saves the Microsoft refresh token using console protection; resumes before requesting another device code.
+- Preserves the saved account on transient network errors or a failed cloud session.
+- START on home removes the local saved login.
+- Native console persistence is implemented but not yet runtime-validated; host DPAPI and simulated resume tests passed.
+
+
+### Network diagnostics NET-10060-A1
+
+- Bounded wait for local address acquisition on SYSAPP.
+- Tries multiple returned IPv4 addresses within a total TCP wait budget.
+- Controller-accessible diagnostics: X opens the screen; Y runs a network-only test from home.
+- Built with Visual Studio 2010; readiness regression tests and Retail inspection passed.
+- The reported TCP 10060 on hardware is still pending validation.
+
 
 ### Native Interface
 
@@ -47,7 +68,7 @@ These are implementation milestones, not confirmation of successful service auth
 - Checks cancellation between authentication requests.
 - Prevents duplicate login attempts while authenticated.
 
-Credential storage is implemented; a game-session consumer and automatic renewal are still pending.
+Credential storage is implemented; experimental session requests and renewal now have code; live validation and continuous playback remain pending.
 
 ### HTTPS Reliability
 
@@ -79,8 +100,10 @@ This addresses HTTP response handling after TLS connects. It does not establish 
 - [x] Offline regression tests and PowerPC compilation.
 - [ ] Validate authentication with a real account.
 - [ ] Investigate the reported TCP 10060 timeout on Xbox 360.
-- [ ] Create a game session, handle its queue, connect and terminate it.
-- [ ] Connect credentials to session requests and implement renewal.
+- [x] Implement experimental creation, queue handling, connection and termination.
+- [ ] Validate the lifecycle with the service and keep the session running during media.
+- [x] Implement credential use and renewal in the session test.
+- [ ] Validate renewal against the real service.
 - [ ] Integrate WebRTC signaling, ICE, DTLS/SRTP and data channels.
 - [ ] Integrate H.264 video decoding and rendering.
 - [ ] Integrate Opus audio decoding and synchronization.
@@ -100,7 +123,7 @@ Build output: `Release/XCloud360.xex`.
 The locally compiled XEX has this SHA-256:
 
 ```text
-4A51BAFC00AA898709314051B659B9F897562DDF6E3B27F438602F23E5B85E36
+A41E62588D4E7BE41E3BDB18F77B626131886E626CE68195A8413DAF44D408B4
 ```
 
 Compilation and Retail inspection do not establish runtime compatibility or playable streaming.
@@ -119,9 +142,6 @@ XCloud360 is an independent homebrew research project and is not affiliated with
 
 **Help keep the Xbox 360 alive. 🎮**
 
-## Fim da descrição — orientação para anexar
+## End of description — attaching the artifact
 
-Em **Attach binaries**, selecione:
-`C:\Users\hhhel.DESKTOP-3QIFGGI\Documents\XCLOUDFORXBOX360\Release\XCloud360.xex`.
-
-A pasta `XCloud360-GitHub-Source` contém os fontes. O binário está apenas na pasta principal. A documentação desta edição foi ajustada; não houve nova compilação.
+Use the current local XEX at Release/XCloud360.xex. All active project sources are in the XCLOUDFORXBOX360 root. The hash above corresponds to the build verified in this layout, without console validation.

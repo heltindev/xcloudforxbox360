@@ -53,4 +53,4 @@ The diagnostic screen is optional: press **X** from the home screen. No test is 
 
 **Safety:** never send credentials before validated HTTPS is available, and do not bypass TLS certificate verification.
 
-See [the dated report](TESTE_RGH3_2026-10-20.md) and [the research references](REFERENCES.md).
+See [the dated report](RGH3_TEST_2026-10-20.md) and [the research references](REFERENCES.md).

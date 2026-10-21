@@ -1,5 +1,9 @@
 #pragma once
 #include <xtl.h>
+namespace xbox_device_flow {class Flow;}
+namespace xbox_live_exchange {class CloudCredentials;}
+namespace xcloud_session {class Session;}
+class XboxTlsBackend;
 
 // Asynchronous Microsoft device-code login experiment for one Xbox 360 XEX.
 // Callbacks do not run on the D3D render thread. Device code shown only
@@ -33,17 +37,38 @@ public:
         bool cloud_login_verified;
         int cloud_http_status;
         unsigned int cloud_regions;
+        int cache_status;
+        bool cache_available;
+        bool cache_resumed;
         bool cloud_credentials_ready;
         unsigned int cloud_credentials_seconds;
+        unsigned int session_stage;
+        int session_http_status;
+        int session_cleanup_http;
+        unsigned int session_wait_seconds;
+        char session_server_state[48];
+        char session_error[80];
+        bool session_created;
+        bool session_closed;
+        bool session_test_complete;
+        bool session_cleanup_failed;
     };
     XboxAccount();
     ~XboxAccount();
     bool start(const char* public_client_id);
     void cancel();
+    bool forget_saved_login();
     Snapshot snapshot();
 private:
     static DWORD WINAPI worker_main(LPVOID arg);
     void perform();
+    void publish_cache(int status,bool available,bool resumed);
+    static bool persist_login(void*,const char*,const char*,const char*,const char*);
+    bool erase_saved_login();
+    void perform_session(xbox_device_flow::Flow& flow,XboxTlsBackend& backend,
+                         xbox_live_exchange::CloudCredentials& credentials);
+    void publish_session(const xcloud_session::Session& session,bool complete,
+                         const char* error_override=NULL);
     static unsigned int worker_clock(void* context);
     static bool worker_cancelled(void* context);
     void publish_credentials(unsigned int seconds);
@@ -61,6 +86,10 @@ private:
     CRITICAL_SECTION lock_;
     HANDLE thread_;
     volatile LONG cancel_requested_;
+    volatile LONG forget_requested_;
+    int cache_status_;
+    bool cache_available_;
+    bool cache_resumed_;
     Snapshot current_;
     char client_id_[64];
 };

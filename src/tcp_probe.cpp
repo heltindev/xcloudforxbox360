@@ -4,6 +4,9 @@
 #include <xtl.h>
 #include <winsockx.h>
 #include <stdio.h>
+#include "xkelib.h"
+#include "syssock.h"
+#include "xbox_network_ready.h"
 
 // Two independent transport checks: hostname-based Xbox endpoint and
 // direct public IPv4 address (1.1.1.1), both port 443. No TLS or HTTP.
@@ -58,12 +61,24 @@ bool proof_http80(SOCKET sock, TestOutcome* result) {
     return true;
 }
 
-TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
+TestOutcome attempt_tcp_impl(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
     TestOutcome result = { 0, TcpProbe::NONE, false };
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
         result.error = (DWORD)WSAGetLastError();
         result.source = TcpProbe::SOCKET_CREATE;
+        return result;
+    }
+
+    // XNet's socket policy is separate from HTTPS/TLS authentication.
+    // Public Internet hosts need this option on the RGH SYSAPP path.
+    const BOOL public_socket = TRUE;
+    if (setsockopt(sock, SOL_SOCKET, SO_MARKINSECURE,
+                   (const char*)&public_socket,
+                   sizeof(public_socket)) == SOCKET_ERROR) {
+        result.error = (DWORD)WSAGetLastError();
+        result.source = TcpProbe::SOCKET_MODE;
+        closesocket(sock);
         return result;
     }
 
@@ -108,7 +123,7 @@ TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
         }
         // Xenia lacks NetDll_getpeername and SO_ERROR is absent in XDK.
         // select(writable) alone cannot prove that remote TCP succeeded.
-        if (!FD_ISSET(sock, &writeable)) {
+        if (FD_ISSET(sock, &exceptions) || !FD_ISSET(sock, &writeable)) {
             result.error = (DWORD)WSAECONNREFUSED;
             result.source = TcpProbe::TCP_RESULT;
             closesocket(sock);
@@ -127,6 +142,19 @@ TestOutcome attempt_tcp(const IN_ADDR& ip, WORD port, DWORD deadline_ms) {
     closesocket(sock);
     return result;
 }
+TestOutcome attempt_tcp(const IN_ADDR& ip,WORD port,DWORD deadline_ms) {
+    const DWORD begin=GetTickCount();
+    const TestOutcome result=attempt_tcp_impl(ip,port,deadline_ms);
+    const unsigned char* bytes=(const unsigned char*)&ip.s_addr;
+    char trace[180];
+    sprintf_s(trace,sizeof(trace),
+        "[XCloud360] TCP %u.%u.%u.%u:%u ms=%lu source=%d error=%lu provisional=%d\n",
+        bytes[0],bytes[1],bytes[2],bytes[3],(unsigned)port,
+        (unsigned long)(GetTickCount()-begin),result.source,result.error,
+        result.provisional?1:0);
+    platform::debug_log(trace);
+    return result;
+}
 }
 
 TcpProbe::TcpProbe()
@@ -137,7 +165,8 @@ TcpProbe::TcpProbe()
       udp_dns_state_(0), udp_dns_error_(0), udp_dns_error_source_(0),
       udp_dns_addresses_(0), dns_path_(0), control80_result_(0),
       control80_error_(0), control80_error_source_(NONE),
-      link_flags_(0),address_flags_(0),local_ip_(0) {}
+      link_flags_(0),address_flags_(0),local_ip_(0),
+      address_state_(network_ready::WAITING),address_wait_ms_(0) {}
 
 TcpProbe::~TcpProbe() {
     if (thread_) {
@@ -172,6 +201,8 @@ bool TcpProbe::start() {
     link_flags_ = 0;
     address_flags_ = 0;
     local_ip_ = 0;
+    address_state_=network_ready::WAITING;
+    address_wait_ms_=0;
     state_ = RUNNING;
     thread_ = CreateThread(NULL, 0, worker, this, 0, NULL);
     if (!thread_) {
@@ -212,6 +243,8 @@ int TcpProbe::control80_error_source() const { return (int)control80_error_sourc
 unsigned long TcpProbe::link_flags() const { return (unsigned long)link_flags_; }
 unsigned long TcpProbe::address_flags() const { return (unsigned long)address_flags_; }
 unsigned long TcpProbe::local_ip() const { return (unsigned long)local_ip_; }
+int TcpProbe::address_state() const {return (int)address_state_;}
+unsigned long TcpProbe::address_wait_ms() const {return (unsigned long)address_wait_ms_;}
 
 DWORD WINAPI TcpProbe::worker(LPVOID context) {
     static_cast<TcpProbe*>(context)->perform();
@@ -230,8 +263,9 @@ void TcpProbe::perform() {
     XNetStartupParams params;
     ZeroMemory(&params, sizeof(params));
     params.cfgSizeOfStruct = sizeof(params);
-    // Devkit-only override; retail XNet generally ignores this flag.
-    params.cfgFlags = 0; // Retail-safe defaults; bypass flag is devkit-only.
+    // Honored by the devkit stack; secure retail XNet may ignore it.
+    // Per-socket SO_MARKINSECURE is requested separately below.
+    params.cfgFlags = XNET_STARTUP_BYPASS_SECURITY;
     {
         const int status = XNetStartup(&params);
         if (status != 0) { error_ = status; source_ = XNET_INIT; goto cleanup; }
@@ -240,12 +274,20 @@ void TcpProbe::perform() {
 
     // Preserve physical-link and address diagnostics even when public TCP
     // times out. These are configuration facts, not a security bypass.
-    link_flags_ = (LONG)XNetGetEthernetLinkStatus();
     {
-        XNADDR addr;
-        ZeroMemory(&addr,sizeof(addr));
-        address_flags_ = (LONG)XNetGetTitleXnAddr(&addr);
-        local_ip_ = (LONG)addr.ina.s_addr;
+        const network_ready::Result ready=xbox_network_ready::wait();
+        link_flags_=(LONG)ready.sample.link_flags;
+        address_flags_=(LONG)ready.sample.address_flags;
+        local_ip_=(LONG)ready.sample.local_ip;
+        address_state_=(LONG)ready.state;
+        address_wait_ms_=(LONG)ready.waited_ms;
+        sprintf_s(log,sizeof(log),
+            "[XCloud360] SYSAPP %s wait=%u link=%08X xnaddr=%08X\n",
+            network_ready::text(ready.state),ready.waited_ms,
+            ready.sample.link_flags,ready.sample.address_flags);
+        platform::debug_log(log);
+        // Some emulators cannot report XNADDR. Keep the measured status
+        // but allow real socket/protocol checks to provide stronger evidence.
     }
 
     stage_ = 2;
@@ -373,7 +415,7 @@ void TcpProbe::perform() {
 cleanup:
     if (dns) XNetDnsRelease(dns);
     if (winsock) WSACleanup();
-    if (xnet) XNetCleanup();
+    if (xnet) NetDll_XNetCleanup(XNCALLER_SYSAPP);
     if (state_ == RUNNING) state_ = FAILED;
     sprintf_s(log,sizeof(log),
               "[XCloud360] probe state=%ld xbox=%ld(%ld) ctrl=%ld(%ld) xnetdns=%ld udpdns=%ld(%ld) path=%ld src=%ld err=%ld\n",

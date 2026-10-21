@@ -7,7 +7,8 @@
 // and inspired by GR33N's asynchronous request/poll architecture.
 //
 // This module does not provide TLS or access to xCloud. No Microsoft
-// password is ever requested. Tokens stay only in RAM and are wiped.
+// password is ever requested. Runtime tokens are wiped; an optional worker-only
+// callback may persist the refresh token through protected platform storage.
 namespace xbox_device_flow {
 bool offline_selftest();
 
@@ -16,6 +17,8 @@ enum State {
     REQUESTING=3, WAITING_USER=4, AUTHORIZED=5,
     EXPIRED=6, DECLINED=7, FAILED=8
 };
+typedef bool (*PersistRefresh)(void*,const char* client,const char* requested,
+                               const char* granted,const char* refresh);
 class Flow {
 public:
     Flow();
@@ -34,6 +37,9 @@ public:
     int last_http_status() const {return http_status_;}
     const char* status_text() const;
     bool start(unsigned long now_ms);
+    void set_persistence(PersistRefresh callback,void* context);
+    bool resume_from_refresh(const char* refresh,const char* granted,unsigned long now_ms);
+    bool reauthentication_required() const {return reauth_required_;}
     // Rebase expiration and first poll to the actual HTTP response arrival.
     // This avoids an immediate poll when the TLS request took several seconds.
     void code_received_at(unsigned long now_ms);
@@ -47,6 +53,9 @@ public:
     // Borrowed pointer for the SAME worker thread only, valid until the
     // next Flow mutation/destruction. Do not log/store/copy to UI state.
     const char* xbox_token_for_worker() const;
+    // Same worker only; refresh rotation stays in RAM and keeps consent scope.
+    bool refresh_for_worker(unsigned long now_ms);
+    bool request_transfer_token(char* output,size_t capacity);
     void cancel();
 private:
     Flow(const Flow&);
@@ -55,6 +64,11 @@ private:
     bool handle_token_reply(const secure_http::Response& reply,
                             unsigned long now_ms);
     void fail();
+    void persist_refresh();
+    bool renew(bool transfer,unsigned long now_ms,char* output,size_t capacity);
+    PersistRefresh persistence_;
+    void* persistence_context_;
+    bool reauth_required_;
     const secure_http::Transport* transport_;
     State state_;
     oauth_device::DeviceAuthorization info_;

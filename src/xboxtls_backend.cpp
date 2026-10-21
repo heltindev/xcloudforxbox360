@@ -1,6 +1,7 @@
 #include "xboxtls_backend.h"
 #include "tls_trust.h"
 #include "http_wire.h"
+#include "xcloud_session.h"
 #include "xboxtls/xbox_client.h"
 #include "xboxtls/native_verifier.h"
 #include <stdlib.h>
@@ -48,12 +49,15 @@ bool XboxTlsBackend::post_xbox_json(void* data,const char* host,
 }
 bool XboxTlsBackend::execute(const char* host,const char* path,
                              const char* form,size_t form_bytes,
-                             secure_http::Response* response,bool xbox_json) {
-    if(!host||!path||!form||!response||form_bytes==0||
-       form_bytes>8192)return false;
+                             secure_http::Response* response,bool xbox_json,
+                             const char* method,const char* bearer) {
+    if(!host||!path||!method||!response||(!form && form_bytes)||
+       form_bytes>32768 || (!bearer && (!form || !form_bytes)))return false;
     // No arbitrary DNS, hostname, paths or HTTP downgrade can be injected.
     // OAuth and Xbox calls are independently restricted.
-    if(xbox_json) {
+    if(bearer) {
+        if(!xcloud_session::validate_request(method,host,path))return false;
+    } else if(xbox_json) {
         const bool user=strcmp(host,"user.auth.xboxlive.com")==0 &&
                         strcmp(path,"/user/authenticate")==0;
         const bool xsts=strcmp(host,"xsts.auth.xboxlive.com")==0 &&
@@ -61,9 +65,11 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
         const bool cloud=strcmp(host,"xgpuweb.gssv-play-prod.xboxlive.com")==0 &&
                          strcmp(path,"/v2/login/user")==0;
         if(!user && !xsts && !cloud)return false;
-    } else if(strcmp(host,"login.microsoftonline.com")!=0 ||
+    } else if(!(strcmp(host,"login.live.com")==0 &&
+                strcmp(path,"/oauth20_token.srf")==0) &&
+             (strcmp(host,"login.microsoftonline.com")!=0 ||
              (strcmp(path,"/consumers/oauth2/v2.0/devicecode")!=0 &&
-              strcmp(path,"/consumers/oauth2/v2.0/token")!=0))return false;
+              strcmp(path,"/consumers/oauth2/v2.0/token")!=0)))return false;
     memset(response,0,sizeof(*response));
     record("TLS INIT",0);
     xboxtls::XboxTlsClient client;
@@ -101,12 +107,16 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
     }
     // The client library is responsible for verifying the certificate
     // chain and hostname during connect(); it must not silently skip them.
-    char* request=(char*)malloc(form_bytes+2048);
+    const size_t request_capacity=form_bytes+(bearer?10240:2048);
+    char* request=(char*)malloc(request_capacity);
     if(!request) {record("ALLOC REQUEST",-2);return false;}
     size_t request_bytes=0;
     const bool cloud_login=xbox_json &&
         strcmp(host,"xgpuweb.gssv-play-prod.xboxlive.com")==0;
-    const bool format=cloud_login ?
+    const bool format=bearer ?
+        http_wire::make_cloud_session_request(method,host,path,bearer,
+            form,form_bytes,request,request_capacity,&request_bytes) :
+        cloud_login ?
         http_wire::make_cloud_login_request(form,form_bytes,
             request,form_bytes+2048,&request_bytes) :
         xbox_json ?
@@ -117,12 +127,12 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
             "POST",host,path,"application/x-www-form-urlencoded",
             form,form_bytes,request,form_bytes+2048,&request_bytes);
     if(!format) {
-        clear_bytes(request,form_bytes+2048);free(request);
+        clear_bytes(request,request_capacity);free(request);
         record("FORMAT REQUEST",-1);return false;
     }
     record("HTTPS SEND",0);
     error=client.send(request,request_bytes);
-    clear_bytes(request,form_bytes+2048);free(request);
+    clear_bytes(request,request_capacity);free(request);
     if(error!=xboxtls::XT_OK) {
         record("HTTPS SEND",(int)error);
         return false;
@@ -170,7 +180,7 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
     } else if(final_bytes<secure_http::RESPONSE_CAP) {
         memcpy(response->body,bytes+parsed.body_offset,final_bytes);
     }
-    if(!okay || final_bytes==0 || final_bytes>=secure_http::RESPONSE_CAP) {
+    if(!okay || final_bytes>=secure_http::RESPONSE_CAP) {
         clear_bytes(bytes,WIRE_CAPACITY+1);free(bytes);
         clear_bytes(response,sizeof(*response));
         record("HTTP BODY",-3);return false;
@@ -184,4 +194,12 @@ bool XboxTlsBackend::execute(const char* host,const char* path,
     free(bytes);
     record("HTTPS COMPLETE",0);
     return true;
+}
+bool XboxTlsBackend::cloud_request(void* context,const char* method,
+                                  const char* host,const char* path,
+                                  const char* bearer,const char* json,size_t bytes,
+                                  secure_http::Response* result) {
+    if(!context || !bearer || !*bearer)return false;
+    return static_cast<XboxTlsBackend*>(context)->execute(
+        host,path,json,bytes,result,true,method,bearer);
 }

@@ -47,7 +47,7 @@ bool add(char* out,size_t cap,size_t* pos,const char* string) {
     return true;
 }
 }
-Flow::Flow():transport_(NULL),state_(MISSING_CONFIG),next_poll_ms_(0),
+Flow::Flow():persistence_(NULL),persistence_context_(NULL),reauth_required_(false),transport_(NULL),state_(MISSING_CONFIG),next_poll_ms_(0),
              expires_at_ms_(0),token_expires_s_(0),poll_attempts_(0),
              http_status_(0) {
     memset(&info_,0,sizeof(info_));
@@ -60,6 +60,7 @@ Flow::Flow():transport_(NULL),state_(MISSING_CONFIG),next_poll_ms_(0),
 }
 Flow::~Flow() {cancel();}
 void Flow::cancel() {
+    reauth_required_=false;
     oauth_device::clear(&info_);
     secure_http::secure_zero(access_token_,sizeof(access_token_));
     secure_http::secure_zero(refresh_token_,sizeof(refresh_token_));
@@ -189,6 +190,7 @@ bool Flow::handle_token_reply(const secure_http::Response& result,
                             granted_scopes_,sizeof(granted_scopes_));
         oauth_device::clear(&info_);
         state_=AUTHORIZED;
+        persist_refresh();
         return true;
     }
     char error[96];
@@ -281,6 +283,121 @@ bool Flow::xbox_scope_granted() const {
 }
 const char* Flow::xbox_token_for_worker() const {
     return xbox_scope_granted() && access_token_[0] ? access_token_ : NULL;
+}
+void Flow::set_persistence(PersistRefresh callback,void* context) {
+    persistence_=callback;persistence_context_=context;
+}
+void Flow::persist_refresh() {
+    if(persistence_ && state_==AUTHORIZED && refresh_token_[0])
+        persistence_(persistence_context_,client_id_,scopes_,granted_scopes_,refresh_token_);
+}
+bool Flow::resume_from_refresh(const char* refresh,const char* granted,unsigned long now) {
+    if(state_!=READY || !transport_ || !refresh || !granted ||
+       !refresh[0] || strlen(refresh)>=sizeof(refresh_token_) ||
+       strlen(granted)>=sizeof(granted_scopes_))return false;
+    for(size_t i=0;refresh[i];++i)
+        if((unsigned char)refresh[i]<0x20 || (unsigned char)refresh[i]>0x7e)return false;
+    if(granted[0] && !scope_valid(granted))return false;
+    secure_http::secure_zero(refresh_token_,sizeof(refresh_token_));
+    secure_http::secure_zero(granted_scopes_,sizeof(granted_scopes_));
+    strcpy_s(refresh_token_,sizeof(refresh_token_),refresh);
+    strcpy_s(granted_scopes_,sizeof(granted_scopes_),granted);
+    state_=AUTHORIZED; // Only permits renew(); no access token exists yet.
+    if(renew(false,now,NULL,0))return true;
+    fail();return false;
+}
+bool Flow::refresh_for_worker(unsigned long now) {
+    return renew(false,now,NULL,0);
+}
+bool Flow::request_transfer_token(char* output,size_t capacity) {
+    if(output && capacity)secure_http::secure_zero(output,capacity);
+    return output && capacity>1 && renew(true,0,output,capacity);
+}
+bool Flow::renew(bool transfer,unsigned long now,char* output,size_t capacity) {
+    if(state_!=AUTHORIZED || !refresh_token_[0] || !transport_)return false;
+    reauth_required_=false;http_status_=0;
+    secure_http::secure_zero(oauth_error_,sizeof(oauth_error_));
+    struct Scratch {
+        char form[32768],encoded[24577],token[12288],refresh[8192],scopes[256];
+        secure_http::Response reply;
+    };
+    Scratch* s=(Scratch*)malloc(sizeof(Scratch));
+    if(!s)return false;
+    memset(s,0,sizeof(*s));
+    size_t at=0;
+    bool ok=http_wire::form_escape(refresh_token_,s->encoded,sizeof(s->encoded)) &&
+        add(s->form,sizeof(s->form),&at,"grant_type=refresh_token&client_id=") &&
+        add(s->form,sizeof(s->form),&at,client_id_) &&
+        add(s->form,sizeof(s->form),&at,"&refresh_token=") &&
+        add(s->form,sizeof(s->form),&at,s->encoded) &&
+        add(s->form,sizeof(s->form),&at,"&scope=");
+    secure_http::secure_zero(s->encoded,sizeof(s->encoded));
+    const char* scope=transfer ?
+        "service::http://Passport.NET/purpose::PURPOSE_XBOX_CLOUD_CONSOLE_TRANSFER_TOKEN" :
+        scopes_;
+    ok=ok && http_wire::form_escape(scope,s->encoded,sizeof(s->encoded)) &&
+       add(s->form,sizeof(s->form),&at,s->encoded);
+    if(ok) {
+        ok=transport_->post_form(transfer?"login.live.com":"login.microsoftonline.com",
+            transfer?"/oauth20_token.srf":"/consumers/oauth2/v2.0/token",
+            s->form,at,&s->reply);
+        if(ok)http_status_=s->reply.http_status;
+    }
+    const bool verified_reply=ok && s->reply.peer_certificate_verified && s->reply.hostname_verified;
+    char type[32]={0};unsigned int lifetime=0;
+    ok=ok && s->reply.http_status==200 &&
+        json_fields::string(s->reply.body,s->reply.length,"access_token",s->token,sizeof(s->token)) &&
+        s->token[0]!=0 &&
+        json_fields::string(s->reply.body,s->reply.length,"token_type",type,sizeof(type)) &&
+        strcmp(type,"Bearer")==0 &&
+        json_fields::uint_value(s->reply.body,s->reply.length,"expires_in",&lifetime) &&
+        lifetime>0 && lifetime<=86400;
+    // Prevent credentials from breaking either an HTTP header or JSON body.
+    for(size_t i=0;ok && s->token[i];++i) {
+        const unsigned char c=(unsigned char)s->token[i];
+        if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||
+             c=='-'||c=='_'||c=='.'||c=='+'||c=='/'||c=='='||c=='~'))ok=false;
+    }
+    if(ok) {
+        json_fields::string(s->reply.body,s->reply.length,"refresh_token",s->refresh,sizeof(s->refresh));
+        if(transfer) {
+            ok=strlen(s->token)<capacity;
+            if(ok)strcpy_s(output,capacity,s->token);
+        } else {
+            secure_http::secure_zero(access_token_,sizeof(access_token_));
+            strcpy_s(access_token_,sizeof(access_token_),s->token);
+            token_expires_s_=lifetime;
+            json_fields::string(s->reply.body,s->reply.length,"scope",s->scopes,sizeof(s->scopes));
+            if(s->scopes[0])strcpy_s(granted_scopes_,sizeof(granted_scopes_),s->scopes);
+        }
+        // The Microsoft identity endpoint can rotate a refresh token on
+        // either grant. Keep only the latest supplied token, in this worker.
+        if(ok && s->refresh[0]) {
+            secure_http::secure_zero(refresh_token_,sizeof(refresh_token_));
+            strcpy_s(refresh_token_,sizeof(refresh_token_),s->refresh);
+        }
+    }
+    if(!ok) {
+        char code[96]={0};
+        json_fields::string(s->reply.body,s->reply.length,"error",code,sizeof(code));
+        bool safe=code[0]!=0;
+        for(size_t i=0;code[i];++i)
+            if(!((code[i]>='a'&&code[i]<='z')||(code[i]>='A'&&code[i]<='Z')||
+                 (code[i]>='0'&&code[i]<='9')||code[i]=='_'||code[i]=='-'))safe=false;
+        strcpy_s(oauth_error_,sizeof(oauth_error_),safe?code:"TOKEN_RENEWAL_FAILED");
+        if(!transfer && verified_reply && (s->reply.http_status==400 || s->reply.http_status==401) &&
+           (strcmp(oauth_error_,"invalid_grant")==0 ||
+            strcmp(oauth_error_,"interaction_required")==0 ||
+            strcmp(oauth_error_,"login_required")==0 ||
+            strcmp(oauth_error_,"consent_required")==0 ||
+            strcmp(oauth_error_,"expired_token")==0))
+            reauth_required_=true;
+        if(output && capacity)secure_http::secure_zero(output,capacity);
+    }
+    if(ok)persist_refresh();
+    (void)now;
+    secure_http::secure_zero(s,sizeof(*s));free(s);
+    return ok;
 }
 const char* Flow::status_text() const {
     switch(state_) {

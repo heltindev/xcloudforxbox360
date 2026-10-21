@@ -1,0 +1,368 @@
+{
+    "format":  1,
+    "root":  ".",
+    "read_first":  "AI_CONTEXT.md",
+    "active_sources_sha256":  "5541F5AA051CC5DD11769C7BD41A49766F4A63F3C1ECD059A44A2809C37D8711",
+    "files":  [
+                  {
+                      "kind":  "active",
+                      "topic":  "Entry point and ABI",
+                      "focus":  "main",
+                      "path":  "src/main.cpp",
+                      "bytes":  1326,
+                      "sha256":  "5CFE307C2C0159C6C86513F9AF2E62802C6B81012850A6B5ADEBB95BF377E00A"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "UI and flow",
+                      "focus":  "poll_account",
+                      "path":  "src/app.cpp",
+                      "bytes":  17133,
+                      "sha256":  "5B68E64EC3E175EA007B283C1FBC7B4E68CC96F3232919F609D77C3224828AA2"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "D3D9 and XInput",
+                      "focus":  "initialize",
+                      "path":  "src/platform_xbox360.cpp",
+                      "bytes":  8124,
+                      "sha256":  "9A17CB98C922BF81FDB0AF517FBE13A3AD02A5DAC25F5E4112EFE4C843AC23A1"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Orchestration and test session",
+                      "focus":  "perform_session",
+                      "path":  "src/xbox_account.cpp",
+                      "bytes":  20409,
+                      "sha256":  "9FAFDC8FC6CA862A8AE8982D75CB763A9BB2CA59D900A015466B4740A1B1103C"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "OAuth refresh and transfer",
+                      "focus":  "request_transfer_token",
+                      "path":  "src/xbox_device_flow.cpp",
+                      "bytes":  22156,
+                      "sha256":  "46E5C4799578F8CADB2583E1F0753AAFA080DBA6223161B785577C665AF0BE7B"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Protected cache contract",
+                      "focus":  "Store",
+                      "path":  "src/login_cache.h",
+                      "bytes":  1368,
+                      "sha256":  "6040226229F5AA3CD5D16AF64ECBFA2731D4D422A637055EAE3FE8ED49F1276F"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Cache format and binding",
+                      "focus":  "Store::load;Store::save",
+                      "path":  "src/login_cache.cpp",
+                      "bytes":  3852,
+                      "sha256":  "7E4BC040B1E3B8C533F288BF7BCCBE578A2B70E7C77062F015C0B1866ADF029C"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Native protection and atomic writes",
+                      "focus":  "protect;write_atomic",
+                      "path":  "src/login_cache_platform.cpp",
+                      "bytes":  4404,
+                      "sha256":  "F5AF1B49A9A96490803579B595CAAC93793D52AD9C7E3B59030460AF6F65D62B"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Host DPAPI protection and cache failures",
+                      "focus":  "main",
+                      "path":  "tests/login_cache_tests.cpp",
+                      "bytes":  3876,
+                      "sha256":  "A843CA0CDDD959482CD2E53D38329F8CF52F12E421705F52BF1280EDF5ACC988"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Xbox User XSTS and login",
+                      "focus":  "exchange",
+                      "path":  "src/xbox_live_exchange.cpp",
+                      "bytes":  18617,
+                      "sha256":  "62E1A0303BE0CC14CB2642DD749DD2B5A3952D11768A5AF2CC0C8DE597167444"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Creation queue connection cleanup",
+                      "focus":  "Session::start;Session::poll;Session::stop",
+                      "path":  "src/xcloud_session.cpp",
+                      "bytes":  14437,
+                      "sha256":  "129FE4139410BD5EED90BEFA1B8698CC15061064BD2ECD034274C372E46C63B0"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "HTTPS and allowlists",
+                      "focus":  "cloud_request",
+                      "path":  "src/xboxtls_backend.cpp",
+                      "bytes":  9004,
+                      "sha256":  "A5C4E32A00E9A1D559DE3294231517BF4A07BB18A5E7C9B60254DF2497647822"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Framing HTTP",
+                      "focus":  "response_complete",
+                      "path":  "src/http_wire.cpp",
+                      "bytes":  11377,
+                      "sha256":  "E705107CB599AB3F511CF6B85D731B823FBADB12B3497AF221C9798A060B4F21"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "TCP diagnostics",
+                      "focus":  "attempt_tcp",
+                      "path":  "src/tcp_probe.cpp",
+                      "bytes":  16377,
+                      "sha256":  "183D6E68D7939653E4D43BD044BC2184B4AD8FFCF742DD81E66FBAF2C2B8F22B"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Bounded IP acquisition policy",
+                      "focus":  "classify;wait",
+                      "path":  "src/network_ready.h",
+                      "bytes":  1935,
+                      "sha256":  "8BFB437AF2186FBFEAE4CDBAE4D5AAFCDBE87F647ECA94724CE73342CF58E04C"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "SYSAPP address lookup",
+                      "focus":  "sample",
+                      "path":  "src/xbox_network_ready.h",
+                      "bytes":  1226,
+                      "sha256":  "CB107CE2B842598CCD8F9F976CF135E6D31D9382A7F90C9CB2B2D7F2E31979B2"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Simulated delayed DHCP and rollover",
+                      "focus":  "main",
+                      "path":  "tests/network_ready_tests.cpp",
+                      "bytes":  2051,
+                      "sha256":  "E5C827355940E1E7D977C645B2CC20F2597EDAF1D2C122703DCBA829D4CE8961"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Multi-IP TCP connect and readiness",
+                      "focus":  "connect_tcp",
+                      "path":  "third_party/xboxtls/src/platform/xbox360/platform_xbox360.cpp",
+                      "bytes":  11469,
+                      "sha256":  "3650DBDD6D6B9B2F38A92BA2440D991113D11A3A073A126EDCEB2527336EA407"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "TLS network diagnostics",
+                      "focus":  "XboxNetworkDiagnostic",
+                      "path":  "third_party/xboxtls/include/xboxtls/xbox360_platform.h",
+                      "bytes":  1436,
+                      "sha256":  "7A54FBCD1865CBD864D9B2028533FB14891893B7F7717D71E7F16C400AE6D8DD"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Channel and RTP adapter",
+                      "focus":  "receive_video",
+                      "path":  "src/xcloud_bridge.cpp",
+                      "bytes":  6985,
+                      "sha256":  "22F955562F0FBC93EEC96628A013B7FC265081FBFCC1A852C8C4725E91EFE608"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Controller encoding",
+                      "focus":  "gamepad",
+                      "path":  "src/xcloud_input.cpp",
+                      "bytes":  3926,
+                      "sha256":  "76DB0BDD36A38545D8A4265FF4D5CEB5E26FC0260A5AC951480178BA5A8B1E1C"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "JSON messages",
+                      "focus":  "handshake",
+                      "path":  "src/xcloud_control.cpp",
+                      "bytes":  3728,
+                      "sha256":  "B0AD32A3CE48C0E4F33E81D39119EEE3FF65D0DE1C1C3A0B3BB2D4A0511FBC65"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "H264 reassembly",
+                      "focus":  "Receiver::push",
+                      "path":  "src/h264_rtp_receiver.cpp",
+                      "bytes":  5027,
+                      "sha256":  "1B722A9AF34B7B7AC4A63344F719B90B5E07A25877066E59EFFBD444CF116646"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "RTP parsing and bytes",
+                      "focus":  "parse",
+                      "path":  "src/rtp_packet.cpp",
+                      "bytes":  1366,
+                      "sha256":  "0F32C7F88B703A63B5B64F7CB21B3C7F3236CAC73E28297722D9D77A040B80AF"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Prototype without cpp implementation",
+                      "focus":  "create_session",
+                      "path":  "src/webrtc_xbox.h",
+                      "bytes":  6509,
+                      "sha256":  "79686465EE82B66617A361205096E2A38773F699F4591B107BA2169F3B30FD82"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Authentication and HTTP regressions",
+                      "focus":  "main",
+                      "path":  "tests/auth_http_tests.cpp",
+                      "bytes":  5946,
+                      "sha256":  "BC61D44C8BFB238FCA6F2AA887F061820B3263A22F69FD4205C74D5F269168EC"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Simulated refresh and transfer",
+                      "focus":  "main",
+                      "path":  "tests/oauth_renewal_tests.cpp",
+                      "bytes":  12888,
+                      "sha256":  "871C04CD5432CCEC7FBC2A73D4EB760B36F731255E61CE1DC491C9FBF94F9283"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Simulated session",
+                      "focus":  "lifecycle",
+                      "path":  "tests/session_tests.cpp",
+                      "bytes":  7131,
+                      "sha256":  "CC083859C6D7650B0585645A371367B38AE2E4974D53DD174B7F6976AC89739E"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Test command",
+                      "focus":  "cl",
+                      "path":  "tests/run_host_tests.ps1",
+                      "bytes":  2947,
+                      "sha256":  "0192B6A9ED0EDDED8C15B754679784459AAD497785D5BD7C4C8554F519BF3018"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "Compiled sources and libraries",
+                      "focus":  "AdditionalDependencies",
+                      "path":  "XCloud360.vcxproj",
+                      "bytes":  10260,
+                      "sha256":  "CE6014229C1B3776FE97DE9ED751FEDBDEA2887790167B6C9C74D9EB60E78C78"
+                  },
+                  {
+                      "kind":  "active",
+                      "topic":  "PowerPC build and Retail inspection",
+                      "focus":  "Step 2",
+                      "path":  "build_release.ps1",
+                      "bytes":  2791,
+                      "sha256":  "D7E6DD8FE07F5F93AA904ED6127682FA0B94586C326A90767EA504650DFA77B0"
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Authentication sequence",
+                      "focus":  "gssv",
+                      "path":  "GR33N-main/source/auth.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Signaling and states",
+                      "focus":  "step_play;step_connect;step_sdp_offer;step_ice_post",
+                      "path":  "GR33N-main/source/session.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "libpeer adaptation",
+                      "focus":  "peer_connection",
+                      "path":  "GR33N-main/source/webrtc.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Reordering and packet loss",
+                      "focus":  "NACK",
+                      "path":  "GR33N-main/source/vjitter.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "PS3-specific decoder",
+                      "focus":  "cellVdec",
+                      "path":  "GR33N-main/source/decoder.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Opus and PS3 audio",
+                      "focus":  "opus",
+                      "path":  "GR33N-main/source/aud.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Application messages",
+                      "focus":  "Handshake",
+                      "path":  "GR33N-main/source/xcmsg.c",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "PS3 DTLS build",
+                      "focus":  "PS3DEV",
+                      "path":  "GR33N-main/deps/build-mbedtls.sh",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "PS3 SRTP build",
+                      "focus":  "PS3DEV",
+                      "path":  "GR33N-main/deps/build-libsrtp.sh",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "PS3 SCTP build",
+                      "focus":  "PS3DEV",
+                      "path":  "GR33N-main/deps/build-usrsctp.sh",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Peer dependencies",
+                      "focus":  "PS3DEV",
+                      "path":  "GR33N-main/deps/build-libpeer.sh",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "PS3 Opus build",
+                      "focus":  "PS3DEV",
+                      "path":  "GR33N-main/deps/build-opus.sh",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Xbox 360 network",
+                      "focus":  "XNet",
+                      "path":  "Harissa64-master/platform/xbox360/xb_net.cpp",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "XAudio2 output",
+                      "focus":  "XAudio2",
+                      "path":  "Harissa64-master/platform/xbox360/xb_audio.cpp",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Textures",
+                      "focus":  "Texture",
+                      "path":  "Harissa64-master/platform/xbox360/xb_art.cpp",
+                      "missing":  true
+                  },
+                  {
+                      "kind":  "reference",
+                      "topic":  "Flutter Dart WebView",
+                      "focus":  "webview_windows",
+                      "path":  "xbox_launcher-main/pubspec.yaml",
+                      "missing":  true
+                  }
+              ]
+}

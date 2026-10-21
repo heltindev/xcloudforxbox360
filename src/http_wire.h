@@ -22,6 +22,10 @@ bool make_xbox_json_request(const char* host,const char* path,
                             char* out,size_t capacity,size_t* written);
 bool make_cloud_login_request(const char* body,size_t bytes,
                               char* out,size_t capacity,size_t* written);
+bool make_cloud_session_request(const char* method,const char* host,
+                                const char* path,const char* bearer,
+                                const char* body,size_t bytes,
+                                char* out,size_t capacity,size_t* written);
 bool parse_response(const char* data, size_t length, Response* response);
 // Framed responses finish without waiting for connection close.
 bool response_complete(const char* data,size_t length);

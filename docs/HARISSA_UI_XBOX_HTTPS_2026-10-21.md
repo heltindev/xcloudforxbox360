@@ -5,7 +5,7 @@
 
 ## 1. Harissa64-inspired front end
 
-The original Harissa64 project, held privately at `PASTACODIGOBASE/Harissa64-master`, is a Nintendo 64 emulator for modded Xbox 360 consoles, **not** an Xbox Cloud Gaming client. Its distinctive front end uses a two-pane game browser, highlighted selected row, game art, details, compact status pills and a fixed footer.
+The original Harissa64 project, held privately at `REFERENCE_BASE/Harissa64-master`, is a Nintendo 64 emulator for modded Xbox 360 consoles, **not** an Xbox Cloud Gaming client. Its distinctive front end uses a two-pane game browser, highlighted selected row, game art, details, compact status pills and a fixed footer.
 
 The new **independently implemented** native UI in `src/harissa_style_ui.cpp/.h` and `src/app.cpp` has:
 
@@ -15,9 +15,9 @@ The new **independently implemented** native UI in `src/harissa_style_ui.cpp/.h`
 - An authentication screen with the same two-pane layout, Microsoft server-provided verification URL/code and countdown, plus individual Xbox User and XSTS indicators.
 - Existing **B** (games), **A** (retry), **X** (network), **Y** (offline tests) and **BACK** (exit) navigation.
 
-The design borrows **visual ideas only**, not GPL source code or assets. Harissa64 is GPL-2.0 and GR33N is GPL-3.0; all their reference code remains in the private `PASTACODIGOBASE/` folder. Do not copy GPL implementation into this project without reviewing redistribution and compatibility obligations.
+The design borrows **visual ideas only**, not GPL source code or assets. Harissa64 is GPL-2.0 and GR33N is GPL-3.0; all their reference code remains in the private `REFERENCE_BASE/` folder. Do not copy GPL implementation into this project without reviewing redistribution and compatibility obligations.
 
-**Evidence:** a prior revision of this interface was compiled to Retail XEX and successfully rendered in Xenia (private image `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/xenia_harissa_style_home_20261021.png`). **The subsequent Xbox HTTPS and offline-test code changes have not been compiled.**
+**Evidence:** a prior revision of this interface was compiled to Retail XEX and successfully rendered in Xenia (private image `REFERENCE_BASE/ARQUIVOS_ANTIGOS/xenia_harissa_style_home_20261021.png`). **The subsequent Xbox HTTPS and offline-test code changes have not been compiled.**
 
 ## 2. What was learned from GR33N
 

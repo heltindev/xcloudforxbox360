@@ -46,7 +46,7 @@ Official platform information: https://news.xbox.com/en-us/2025/12/19/getting-st
 
 ## Validation checklist
 
-- [x] Source backed up with SHA-256 verification under private `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/BEFORE_XBOX_SCOPE_PREFLIGHT_20261021/`.
+- [x] Source backed up with SHA-256 verification under private `REFERENCE_BASE/ARQUIVOS_ANTIGOS/BEFORE_XBOX_SCOPE_PREFLIGHT_20261021/`.
 - [x] Xbox Live scope and offline token-request builders integrated with the PowerPC XDK project.
 - [x] Xbox request builder and authorization-gate checks run in the XEX's offline self-test.
 - [x] PowerPC Retail build completes with XexTool verification.

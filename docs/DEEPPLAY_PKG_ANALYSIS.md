@@ -1,6 +1,6 @@
 # DeepPlay PS3 PKG — Package Reverse-Engineering Report
 
-**Analyzed file (private developer machine):** `PASTACODIGOBASE/GR33N-main/XCLOUDPS3.pkg`  
+**Analyzed file (private developer machine):** `REFERENCE_BASE/GR33N-main/XCLOUDPS3.pkg`  
 **Target of the new implementation:** Xbox 360 Xenon PowerPC, native Xbox 360 XDK `.xex`.  
 **Package execution:** **Never executed.** The header, encrypted package table, selected local images and PS3 metadata were examined offline.
 
@@ -44,9 +44,9 @@ Instead, the new Xbox 360 code adds an **independently drawn, procedural DeepPla
 
 - The PS3 PKG item table was decrypted locally using the **non-finalized PKG** SHA-1 stream algorithm, so the installed filenames and sizes are grounded in the actual supplied file.
 - The `PARAM.SFO` was parsed locally to confirm the product title, content ID and package metadata.
-- Selected UI PNGs were extracted **only** to `PASTACODIGOBASE/research_pkg/visual_only/` for private study. That directory is excluded from Git.
+- Selected UI PNGs were extracted **only** to `REFERENCE_BASE/research_pkg/visual_only/` for private study. That directory is excluded from Git.
 - `EBOOT.BIN` and `deepplay-ps.sprx` were identified as **SCE-format compiled PS3 executables**, not readable C/C++ source code. They were **not** executed, decrypted to native PS3 ELF, decompiled to source, or adapted into an Xbox XEX.
-- The application/network protocol logic inside those protected binaries **has not been proven by this inspection**. The available **PASTACODIGOBASE/GR33N-main/source/** tree remains the better source-level reference for networking, xCloud formats and WebRTC architecture.
+- The application/network protocol logic inside those protected binaries **has not been proven by this inspection**. The available **REFERENCE_BASE/GR33N-main/source/** tree remains the better source-level reference for networking, xCloud formats and WebRTC architecture.
 
 ## What was newly implemented for XCloud360
 
@@ -54,7 +54,7 @@ Instead, the new Xbox 360 code adds an **independently drawn, procedural DeepPla
 | --- | --- | --- |
 | `src/app.cpp` | **DeepPlay Midnight** palette and procedural background, still with original Xbox 360 GR33N-like Games/Favourites/Settings/Tests tabs | C++ source edited; owner compilation/test pending |
 | `src/app.cpp` / `src/app.h` | Settings item **Visual theme** switches between DeepPlay Midnight and GR33N Neon without loading PS3 PNG/TTF assets | Source edited, not yet hardware-tested |
-| `PASTACODIGOBASE/research_tools/inspect_pkg.ps1` | Local PS3 development-PKG header, file-table, filenames and selected private reference extraction | **Executed successfully on the supplied 9 MB PKG** |
+| `REFERENCE_BASE/research_tools/inspect_pkg.ps1` | Local PS3 development-PKG header, file-table, filenames and selected private reference extraction | **Executed successfully on the supplied 9 MB PKG** |
 | `docs/DEEPPLAY_PKG_ANALYSIS.md` | This analysis report | Written in English for GitHub |
 
 ## Still NOT implemented or validated
@@ -73,13 +73,13 @@ Instead, the new Xbox 360 code adds an **independently drawn, procedural DeepPla
 From the root of the developer's checkout:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\PASTACODIGOBASE\research_tools\inspect_pkg.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\REFERENCE_BASE\research_tools\inspect_pkg.ps1
 ```
 
 Optional, **private** visual-reference extraction (never commit the output):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\PASTACODIGOBASE\research_tools\inspect_pkg.ps1 -ExtractReferences
+powershell -NoProfile -ExecutionPolicy Bypass -File .\REFERENCE_BASE\research_tools\inspect_pkg.ps1 -ExtractReferences
 ```
 
 The script checks the exact supported non-finalized PS3 PKG format before interpreting records; it does not run a PS3 executable or download other software.
@@ -88,6 +88,6 @@ The script checks the exact supported non-finalized PS3 PKG format before interp
 
 The existence of a homebrew package and a generic SFO license string **does not grant permission to republish all its TTF fonts, sound files, images, binaries or reverse-engineered code**. This project reimplements general design concepts with original geometry and Xbox SDK primitives.
 
-Do not commit `PASTACODIGOBASE/` (containing `GR33N-main/` and `research_pkg/`), Microsoft SDK font resources, any `EBOOT.BIN`, `.sprx`, `.ttf`, extracted PNG/audio, credentials or keys to the public XCloud360 repository.
+Do not commit `REFERENCE_BASE/` (containing `GR33N-main/` and `research_pkg/`), Microsoft SDK font resources, any `EBOOT.BIN`, `.sprx`, `.ttf`, extracted PNG/audio, credentials or keys to the public XCloud360 repository.
 
 See [GR33N_XEX_PORT.md](GR33N_XEX_PORT.md), [GR33N_UI_XBOX360.md](GR33N_UI_XBOX360.md), [ROADMAP.md](../ROADMAP.md).

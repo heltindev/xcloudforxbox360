@@ -1,6 +1,7 @@
 # XCloud360 build for native Xbox 360 PowerPC, launched by the owner.
 # Intended output: Release/XCloud360.xex (Retail, with embedded font).
 # No ZIP, no dist folder and no XCloud360-RGH3 folder are created.
+param([switch]$SdkOnly)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $project = Join-Path $root 'XCloud360.vcxproj'
@@ -11,34 +12,21 @@ $embeddedFontScript = Join-Path $root 'embed_font.ps1'
 
 if (!(Test-Path $msbuild)) { throw 'MSBuild 4.0 was not found.' }
 if (!(Test-Path $project)) { throw 'Xbox 360 project file was not found.' }
-if (!(Test-Path $xextool)) { throw 'XexTool.exe was not found in tools/xextool.' }
+if (!$SdkOnly -and !(Test-Path $xextool)) { throw 'Install XexTool in tools/xextool/XexTool-windows-x64, or use -SdkOnly for an SDK build without Retail inspection.' }
 if ([string]::IsNullOrWhiteSpace($env:XEDK)) {
     throw 'XEDK is not configured for the Xbox 360 PowerPC compiler.'
-}
-
-Write-Host 'Step 1/3 - Preparing the XEX-embedded font'
-& $embeddedFontScript
-if (!(Test-Path (Join-Path $root 'obj\generated\embedded_font_xpr.cpp'))) {
-    throw 'Unable to prepare the embedded font C++ translation unit.'
-}
-
-$atgLib = Join-Path $root 'obj\AtgFramework\Release\AtgFramework.lib'
-if (!(Test-Path $atgLib)) {
-    $atgProj = Join-Path $env:XEDK 'Source\Samples\Common\AtgFramework2010.vcxproj'
-    if (!(Test-Path $atgProj)) { throw 'AtgFramework2010.vcxproj was not found.' }
-    $atgDir = Join-Path $root 'obj\AtgFramework\Release'
-    New-Item -ItemType Directory -Force -Path $atgDir | Out-Null
-    $atgDir += '\'
-    & $msbuild $atgProj /t:Build '/p:Configuration=Release;Platform=Xbox 360' ('/p:OutDir=' + $atgDir) ('/p:IntDir=' + $atgDir) /v:minimal
-    if ($LASTEXITCODE -ne 0 -or !(Test-Path $atgLib)) {
-        throw 'ATG framework library build failed.'
-    }
 }
 
 Write-Host 'Step 2/3 - Building the native Xbox 360 PowerPC application'
 & $msbuild $project /t:Build '/p:Configuration=Release;Platform=Xbox 360' /v:minimal
 if ($LASTEXITCODE -ne 0) { throw 'PowerPC compilation failed.' }
 if (!(Test-Path $xex)) { throw 'XEX was not found in Release.' }
+
+if ($SdkOnly) {
+    Write-Host ('SDK BUILD READY: ' + $xex)
+    Write-Warning 'Retail format and console execution were not verified in -SdkOnly mode.'
+    return
+}
 
 Write-Host 'Step 3/3 - Inspecting the XEX and converting it to Retail'
 $info = (& $xextool -l $xex | Out-String)

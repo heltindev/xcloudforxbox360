@@ -1,4 +1,5 @@
 #include "protocol_selftest.h"
+#include "xcloud_session.h"
 #include "http_wire.h"
 #include "json_fields.h"
 #include "oauth_device.h"
@@ -17,6 +18,7 @@
 #include <string.h>
 
 bool protocol_selftest() {
+    if(!xcloud_session::offline_selftest())return false;
     // Offline test data only. Never makes a network request or sends an
     // authentication token. The XEX runs this once during initialization.
     // FIPS 180-4 SHA-384 vectors: detects big/little-endian and 64-bit

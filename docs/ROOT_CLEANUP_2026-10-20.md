@@ -7,10 +7,10 @@
 
 | Former location | New location | Reason |
 | --- | --- | --- |
-| `experimental_xell/` | `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/experimental_xell/` | Separate libxenon / XeLL boot-only experiment, **not** an XEX build dependency |
-| `dist/` | `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/dist_antigo/` | Old, redundant XEX package and external font folder; preserved for historical reference |
-| `XCloud360.vcxproj.user` | `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/XCloud360.vcxproj.user` | Per-user Visual Studio preference backup, not needed to build |
-| `GR33N-main/`, `research_pkg/`, `research_tools/` | Previously moved to `PASTACODIGOBASE/` | PS3 sources, DeepPlay media research, PKG inspector; not compiled into native Xbox 360 code |
+| `experimental_xell/` | `REFERENCE_BASE/XBOX360_EXPERIMENTOS/experimental_xell/` | Separate libxenon / XeLL boot-only experiment, **not** an XEX build dependency |
+| `dist/` | `REFERENCE_BASE/ARQUIVOS_ANTIGOS/dist_antigo/` | Old, redundant XEX package and external font folder; preserved for historical reference |
+| `XCloud360.vcxproj.user` | `REFERENCE_BASE/ARQUIVOS_ANTIGOS/XCloud360.vcxproj.user` | Per-user Visual Studio preference backup, not needed to build |
+| `GR33N-main/`, `research_pkg/`, `research_tools/` | Previously moved to `REFERENCE_BASE/` | PS3 sources, DeepPlay media research, PKG inspector; not compiled into native Xbox 360 code |
 | `XBOXTERMINAL/` | Its reusable TLS/login sources were previously consolidated into `src/` and `third_party/xboxtls/` | Duplicate standalone executable/project removed before this cleanup |
 
 No PS4 source checkout was found in the project root. External PS4 references remain in `docs/REFERENCES.md`, without copying third-party code.
@@ -37,7 +37,7 @@ No PS4 source checkout was found in the project root. External PS4 references re
 | `tools/xextool/XexTool-windows-x64/XexTool.exe` | Local devkit-to-Retail XEX verification/conversion utility |
 | `Release/` | User's current compiled XEX and other outputs; **not changed or cleaned** |
 | `auth_config.h` | Locally configured Microsoft public application ID; **ignored by Git** |
-| `PASTACODIGOBASE/` | All research material and archived optional source; **ignored by Git** |
+| `REFERENCE_BASE/` | All research material and archived optional source; **ignored by Git** |
 | `XCloud360-GitHub-Source/` | Reviewed, synchronized source-only mirror; no binaries/PS3 resources |
 
 ## Main directory after cleanup
@@ -51,7 +51,7 @@ XCLOUDFORXBOX360/
   tools/xextool/               locally installed XEX verification tool
   Release/                     current owner's build (preserved)
   docs/                        implementation status and update notes
-  PASTACODIGOBASE/             private PS3 references, XeLL experiment, archives
+  REFERENCE_BASE/             private PS3 references, XeLL experiment, archives
   XCloud360-GitHub-Source/     public-facing, source-only synchronization folder
   .vscode/                     developer-specific editor configuration
   build_release.ps1
@@ -59,7 +59,7 @@ XCLOUDFORXBOX360/
   package_github.ps1
   README.md
   ROADMAP.md
-  STATUS_DO_PROJETO.md
+  PROJECT_STATUS.md
   XCloud360.vcxproj
   XCLOUDFORXBOX360.sln
   xex.xml

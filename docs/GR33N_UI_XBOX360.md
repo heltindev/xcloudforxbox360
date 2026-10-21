@@ -1,6 +1,6 @@
 # GR33N user interface — native Xbox 360 adaptation
 
-**Reference actually inspected:** the locally supplied `PASTACODIGOBASE/GR33N-main/source/ui.c`, `include/ui.h`, `source/text.c` and `docs/screenshot.png`.
+**Reference actually inspected:** the locally supplied `REFERENCE_BASE/GR33N-main/source/ui.c`, `include/ui.h`, `source/text.c` and `docs/screenshot.png`.
 
 **Porting target:** XCloud360, a native `.xex` for **Xenon PowerPC / Xbox 360 RGH 3**, using Xbox 360 XDK, D3D9 and XInput. This is a **new, independent UI implementation**, not a recompiled PS3 UI or a functioning xCloud session.
 
@@ -65,7 +65,7 @@ The supplied `docs/screenshot.png` shows *actual game artwork fetched or cached 
 
 The supplied GR33N repository is **GPL-3.0**. Its screenshot and original assets are **reference material only**; they are not copied into the XEX or the public source mirror. This Xbox 360 code implements general UI layout ideas with its own drawing and input code.
 
-**If actual upstream GR33N source is directly transplanted**, preserve original credits and comply with GPL-3.0, and review the combination with the proprietary Xbox 360 XDK before distributing anything. Review `PASTACODIGOBASE/GR33N-main/LICENSE` and `PASTACODIGOBASE/GR33N-main/CREDITS.md` locally.
+**If actual upstream GR33N source is directly transplanted**, preserve original credits and comply with GPL-3.0, and review the combination with the proprietary Xbox 360 XDK before distributing anything. Review `REFERENCE_BASE/GR33N-main/LICENSE` and `REFERENCE_BASE/GR33N-main/CREDITS.md` locally.
 
 ## Testing and packaging policy
 
@@ -73,4 +73,4 @@ The owner compiles and runs on Xbox 360 RGH 3. No compilation, ZIP creation, `Re
 
 Check real-hardware text legibility, the 720p/480p fallback, LB/RB tabs, green focus outline, D-pad repeat, favorites, language, video test card and controller demo **before** calling any of these verified.
 
-See the complete checklist: [ROADMAP.md](../ROADMAP.md) and [STATUS_DO_PROJETO.md](../STATUS_DO_PROJETO.md).
+See the complete checklist: [ROADMAP.md](../ROADMAP.md) and [PROJECT_STATUS.md](../PROJECT_STATUS.md).

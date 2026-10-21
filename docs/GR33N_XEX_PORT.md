@@ -75,4 +75,4 @@ The initial Xbox 360 implementation accepts in-order RTP packets and **drops bro
 
 The GR33N source was cloned **temporarily for reference only**, not included in XCloud360's published source tree. No binaries, tokens, firmware or proprietary SDK assets have been copied.
 
-Related files: [ROADMAP.md](../ROADMAP.md), [STATUS_DO_PROJETO.md](../STATUS_DO_PROJETO.md), [REFERENCES.md](REFERENCES.md), [RGH_NETWORK.md](RGH_NETWORK.md).
+Related files: [ROADMAP.md](../ROADMAP.md), [PROJECT_STATUS.md](../PROJECT_STATUS.md), [REFERENCES.md](REFERENCES.md), [RGH_NETWORK.md](RGH_NETWORK.md).

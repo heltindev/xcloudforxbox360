@@ -24,10 +24,15 @@ public:
     static bool post_xbox_json(void* context,const char* host,const char* path,
                                const char* json,size_t json_bytes,
                                secure_http::Response* result);
+    static bool cloud_request(void* context,const char* method,
+                              const char* host,const char* path,
+                              const char* bearer,const char* json,size_t bytes,
+                              secure_http::Response* result);
 private:
     bool execute(const char* host,const char* path,const char* form,
                  size_t form_bytes,secure_http::Response* response,
-                 bool xbox_json);
+                 bool xbox_json,const char* method="POST",
+                 const char* bearer=NULL);
     void record(const char* stage,int tls_error);
     Diagnostic diagnostic_;
 };

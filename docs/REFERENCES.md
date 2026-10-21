@@ -73,4 +73,4 @@ The updated UI takes only **general visual inspiration** (dark cards, Xbox green
 
 **No streaming client exists yet.** A working HTTPS connection would only complete one of many required milestones. A Microsoft account login alone does not prove that the xCloud session protocols or video decoding will work.
 
-See [ROADMAP.md](../ROADMAP.md), [STATUS_DO_PROJETO.md](../STATUS_DO_PROJETO.md) and [RGH_NETWORK.md](RGH_NETWORK.md).
+See [ROADMAP.md](../ROADMAP.md), [PROJECT_STATUS.md](../PROJECT_STATUS.md) and [RGH_NETWORK.md](RGH_NETWORK.md).

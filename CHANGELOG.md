@@ -1,34 +1,60 @@
-# Atualizações
+# Changelog
 
-## 2026-10-21 — credenciais em memória e leitura HTTPS
+## 2026-10-21 — Sign-in cache
 
-- gsToken e região mantidos na thread de autenticação, com validade limitada a 24 horas e limpeza ao expirar/cancelar.
-- Cancelamento entre as etapas Xbox/XSTS/xCloud; tokens intermediários apagados.
-- Evita login duplicado enquanto autenticado.
-- Respostas HTTP com tamanho conhecido ou chunked completo não dependem do fechamento da conexão.
-- Rejeição de codificações HTTP não suportadas e cabeçalhos ambíguos.
-- Testes públicos reproduzíveis: expiração, virada do relógio, limpeza, cancelamento, regiões e fragmentação HTTP.
-- Ainda sem sessão de jogo, WebRTC e reprodução. O TCP 10060 no hardware não foi validado como corrigido.
+- Protected refresh-token cache bound to application/scopes.
+- Resumption before Device Code and persistence of token rotation.
+- Transient errors and transfer/session failures preserve saved sign-in.
+- START on Home removes the local cache.
+- Persistent credentials excluded from Git and the publication checker.
+- Host tests, VS2010 build, and Retail inspection passed. Native cache execution remains pending.
 
+## 2026-10-21 — NET-10060-A1
 
-## 2026-10-21 — interface verde e autenticação experimental
+- Waits up to 10 seconds for address acquisition within SYSAPP before networking attempts.
+- HTTPS tries up to four distinct IPv4 addresses within a 12-second TCP wait budget.
+- X / NETWORK screen shows IP, flags, DNS, errors, and HTTPS stage; Y runs network diagnostics from Home.
+- Destination/attempt/timing logs without tokens. TLS and hostname validation remain enabled.
+- Delayed DHCP, deadline, and rollover tests passed.
+- Visual Studio 2010 compilation and Retail inspection passed.
+- Console TCP 10060 remains pending physical verification.
 
-### Alterações
-- Interface verde com menos textos e navegação por controle.
-- Tela de login com endereço oficial, código e tempo restante.
-- Correção da leitura de respostas Xbox User/XSTS com JSON aninhado.
-- Tentativa de login no serviço xCloud depois de um XSTS válido.
-- Validação de HTTPS, resposta de login e regiões do serviço.
-- Diagnósticos de falha HTTP e XErr.
-- README e roadmap alinhados com o estado atual.
+## 2026-10-21 — Unified root and AI context
 
-### Validação
-- Compilação PowerPC Release e verificação do XEX Retail: passaram.
-- Testes simulados de autenticação e montagem HTTP: passaram.
-- Última revisão visual: não testada no Xenia nem no Xbox 360 físico.
-- Login Xbox/XSTS/xCloud real desta revisão: não validado.
+- Root becomes the only active repository; no second `src` tree is generated.
+- Added `AI_CONTEXT.md`, curated summary, and hash index for targeted reading.
+- Refresh and verification script updates the index without concatenating the entire codebase.
+- Updated diagnosis: experimental session/refresh code exists, but transport and media remain unfinished.
+- Original sources and historical artifacts excluded from initial context and Git.
 
-### Limitações
-**Esta atualização não permite jogar pelo xCloud.** Ainda faltam sessão de jogo, transporte WebRTC e decodificação/reprodução de vídeo e áudio. A arquitetura pretendida conecta o Xbox 360 diretamente ao serviço, sem PC intermediário durante o uso.
+## 2026-10-21 — In-memory credentials and HTTPS response handling
 
-Os fontes públicos usam auth_config.example.h. A configuração de conta local, fontes de SDK, ferramentas proprietárias e binários não fazem parte desta atualização de código.
+- gsToken and region are kept in the authentication worker, with at most 24 hours of validity and cleanup on expiry/cancellation.
+- Cancellation between Xbox/XSTS/xCloud stages; intermediate tokens cleared.
+- Duplicate sign-in is prevented while authenticated.
+- HTTP responses with a known length or completed chunked encoding no longer depend on connection closure.
+- Unsupported HTTP encodings and ambiguous headers are rejected.
+- Reproducible public tests cover expiration, clock rollover, clearing, cancellation, regions, and HTTP fragmentation.
+- No working gameplay session, WebRTC, or playback at this milestone. The hardware TCP 10060 error was not confirmed fixed.
+
+## 2026-10-21 — Green interface and experimental authentication
+
+### Changes
+- Simplified green UI and controller navigation.
+- Sign-in screen with official URL, device code, and remaining time.
+- Corrected nested Xbox User/XSTS JSON response reading.
+- Attempted xCloud service login after receiving a valid XSTS token.
+- HTTPS, service login response, and region validation.
+- HTTP failure and XErr diagnostics.
+- README and roadmap aligned with the implementation status.
+
+### Validation
+- PowerPC Release build and Retail XEX inspection passed.
+- Simulated authentication and HTTP construction tests passed.
+- Latest visual revision not tested on Xenia or physical Xbox 360.
+- Real Xbox/XSTS/xCloud sign-in not validated for this revision.
+
+### Limitations
+**This update does not enable xCloud gameplay.** Gameplay sessions, WebRTC transport, and video/audio decoding and playback are still missing. The intended design connects the Xbox 360 directly to the service without an intermediary PC during use.
+
+The public sources use `auth_config.example.h`. Local account settings, SDK font files, proprietary tools, and binaries are not part of this source update.
