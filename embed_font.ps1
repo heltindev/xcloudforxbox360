@@ -1,6 +1,19 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$font = Join-Path $root 'assets\Fonts\SegoeUI_24.xpr'
+$font = Join-Path $root 'assets\Fonts\SegoeUI_42.xpr'
+if (!(Test-Path -LiteralPath $font)) {
+    $hdGenerator = Join-Path $root 'generate_hd_font.ps1'
+    if (Test-Path -LiteralPath $hdGenerator) {
+        try { & $hdGenerator }
+        catch { Write-Warning ('High-density atlas generation unavailable; using SDK fallback: '+$_.Exception.Message) }
+    }
+}
+$fontPoints = 42
+if (!(Test-Path -LiteralPath $font)) {
+    # A clean checkout can still regenerate the SDK's original font.
+    $font = Join-Path $root 'assets\Fonts\SegoeUI_24.xpr'
+    $fontPoints = 24
+}
 $generated = Join-Path $root 'obj\generated\embedded_font_xpr.cpp'
 
 # This step runs locally before the PowerPC compiler. The Microsoft SDK
@@ -20,7 +33,9 @@ if (!(Test-Path -LiteralPath $font)) {
 }
 if ((Test-Path -LiteralPath $generated) -and
     (Get-Item -LiteralPath $generated).LastWriteTimeUtc -ge
-    (Get-Item -LiteralPath $font).LastWriteTimeUtc) {
+    (Get-Item -LiteralPath $font).LastWriteTimeUtc -and
+    ((Get-Content -LiteralPath $generated -Tail 3) -join "\n") -match
+      ('g_embedded_font_design_points = '+$fontPoints+'u')) {
     Write-Host 'Fonte interna ja gerada: nenhum arquivo XPR externo sera necessario.'
     return
 }
@@ -46,6 +61,7 @@ for ($i=0; $i -lt $bytes.Length; $i+=16) {
 }
 [void]$builder.AppendLine('};')
 [void]$builder.AppendLine(('extern const unsigned int g_embedded_font_xpr_size = {0}u;' -f $bytes.Length))
+[void]$builder.AppendLine(('extern const unsigned int g_embedded_font_design_points = {0}u;' -f $fontPoints))
 [System.IO.File]::WriteAllText($generated,$builder.ToString(),
                                [System.Text.Encoding]::ASCII)
 Write-Host ('Fonte XPR incorporada na unidade de compilacao local: ' + $generated)

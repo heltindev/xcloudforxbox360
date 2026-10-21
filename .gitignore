@@ -1,68 +1,63 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
+# Xbox 360 and Visual Studio build outputs
+.vs/
+obj/
+bin/
+Release/
+Debug/
+dist/
 *.obj
-
-# Precompiled Headers
-*.gch
 *.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
 *.pdb
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-*.so.*
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# Build directories
-build/
-Build/
-build-*/
-
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
-
-# Temporary files
-*.tmp
+*.xdb
+*.tlog
+*.lastbuildstate
+*.cache
+*.ilk
+*.idb
+*.sdf
+*.opensdf
+*.suo
+*.vcxproj.user
+*.user
 *.log
-*.bak
-*.swp
 
-# vcpkg
-vcpkg_installed/
+# Compiled binaries / downloadable packages (not source code)
+*.xex
+*.exe
+*.zip
+*.xpr
+*.elf
+*.elf32
+*.map
 
-# debug information files
-*.dwo
+# Proprietary SDK-generated fonts and locally installed development tools
+/assets/Fonts/
+/tools/xextool/
 
-# test output & cache
-Testing/
-.cache/
+# Local registered public Application ID (not a password, but user config).
+# Publish auth_config.example.h instead.
+/auth_config.h
+
+# Standalone TLS proof-of-concept was consolidated and should not reappear.
+/XBOXTERMINAL/
+
+# Local mirror for manually reviewing source before GitHub publication
+/XCloud360-GitHub-Source/
+
+# Temporary GPL research checkout and user-supplied PS3 code base
+# Reference-only original PS3/PS4 source and extracted assets are all private.
+# The entire reference directory must never be committed to GitHub.
+/PASTACODIGOBASE/
+/research/
+/GR33N-main/
+/research_pkg/
+/research_tools/
+
+# Archived XeLL/libxenon files are already covered by /PASTACODIGOBASE/.
+
+# Backups, snapshots and local exports
+/archive/
+/*.bak
+*~
+Thumbs.db
+Desktop.ini

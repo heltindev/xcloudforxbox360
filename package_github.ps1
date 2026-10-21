@@ -21,7 +21,7 @@ foreach ($name in @(
     '.gitignore', 'README.md', 'ROADMAP.md', 'STATUS_DO_PROJETO.md',
     'XCLOUDFORXBOX360.sln', 'XCloud360.vcxproj',
     'auth_config.example.h', 'xex.xml',
-    'build_release.ps1', 'embed_font.ps1', 'package_github.ps1'
+    'build_release.ps1', 'embed_font.ps1', 'generate_hd_font.ps1', 'package_github.ps1'
 )) {
     $files.Add($name)
 }

@@ -10,6 +10,96 @@ Checklists have three distinct meanings:
 - **Validated on RGH:** the required feature demonstrably ran on physical hardware.
 - **Blocked / pending:** missing functionality, unknown service access, or failed testing.
 
+## Latest build and Xbox Live blocker (2026-10-21)
+
+- [x] Independently redesigned Harissa-inspired Fortnite homepage and login in emerald green, with sharper contrast, 1080p-first native rendering and 720p/480p fallback.
+- [x] Generated a private native **Segoe UI 42pt** atlas from the user's installed Windows/XDK tooling; embedded the XPR in the XEX with pixel-density-aware scaling. Kept `SegoeUI_24` as a fallback. Public source includes only `generate_hd_font.ps1`, no font assets.
+- [x] Compiled the entire Xbox User/XSTS HTTPS stage and native protocol selftests with Xbox 360 XDK; XexTool confirmed compressed Retail XEX. Final source build passed without reported errors.
+- [x] Xenia confirmed the green homepage, separate Microsoft Device Code screen, and genuine HTTPS device-code response; private screenshots do not go into GitHub.
+- [x] Verified using the developer PC's Windows certificate store that both public Xbox auth hosts currently chain to **DigiCert Global Root G2**, already trusted by the native source. Hardware TLS handshake is a separate untested step.
+- [x] Clarified Xbox login blocking condition: `xboxlive.signin` must be genuinely granted to the owner's registered app. The default private configuration remains unchanged and Xbox service HTTP calls are not falsely counted as completed.
+- [ ] Validate actual Xbox User Token and service-specific XSTS responses with an authorized Xbox scope and the owner's explicit login; this did **not** occur in the Xenia smoke test.
+- [ ] Develop authorized xCloud session creation, queue/signaling, WebRTC/ICE/DTLS/SRTP/SCTP, H.264/Opus decode, audio sync and controller return. Native Fortnite is **not running**.
+- [ ] Test network and streaming on a real **RGH/RGH3 Xbox 360**. Last real-console TCP error 10060 is unresolved; Xenia success does not prove hardware compatibility.
+
+For a grounded, precise test record see [Green HD and Xbox authorization report](docs/GREEN_HD_XBOX_2026-10-21.md).
+
+## Previously uncompiled source milestone (subsequently built in Xenia)
+
+- [x] Inspected `PASTACODIGOBASE/Harissa64-master` and adapted its two-pane browser **visually** to independent Xbox 360 D3D source in `src/harissa_style_ui.cpp/.h`. Earlier design compiled/booted in Xenia; no Harissa GPL code, font or art was copied.
+- [x] Studied GR33N PS3 architecture for OAuth scope, Xbox User Token, service-specific XSTS, cloud session, WebRTC/ICE, H.264 and Opus separation. All PS3 code and packages remain **private reference only**.
+- [x] Added native Xbox User/XSTS HTTPS exchanges, exact hostname/path allowlisting, contract-version header, scope gate, service-specific XSTS request, transient token handling and safe error state to source.
+- [x] Added offline-test cases for an unverified TLS response, Xbox 401 XErr, synthetic service-token grant, gamepad metadata/packet sequence and H.264 depacketization across an in-memory bridge.
+- [x] **COMPILED IN LATER UPDATE:** the owner subsequently requested compilation, and the new PowerPC source was built and XexTool-verified (see latest section).
+- [x] **EXECUTED IN LATER UPDATE:** native startup offline tests ran before Xenia reached Microsoft's genuine device-code response. Test data is synthetic, not a game session.
+- [ ] Obtain Microsoft permission for an owned `xboxlive.signin` public app and obtain valid Xbox User/XSTS tokens with TLS host validation; this has **never been confirmed**.
+- [ ] Confirm the certificate trust set covers the Xbox authentication hosts, without disabling TLS verification.
+- [ ] Validate direct DNS/TCP and authentication on an actual Xbox 360 RGH3 (previous hardware error 10060 still unresolved).
+- [ ] Build a **permitted** xCloud service/session negotiation, WebRTC stack, authenticated SRTP, H.264/Opus decoding, A/V sync and controller return path. Current XEX is **not a playable cloud client**.
+
+Documentation: [Harissa-inspired UI and Xbox HTTPS integration](docs/HARISSA_UI_XBOX_HTTPS_2026-10-21.md).
+
+## Previous source milestone: distinguish Xbox permission from Microsoft OAuth (2026-10-21)
+
+- [x] Confirmed Microsoft account device-code OAuth success is distinct from Xbox Live/XSTS and xCloud session authorization. The earlier `NOT IMPLEMENTED` message was a missing feature, not a crashing executable.
+- [x] Integrated `xbox_live_auth.cpp/.h` into the native Xbox XDK project. Offline builders for Xbox User Token and generic XSTS request JSON, plus exact-scope checks, fail closed on invalid characters.
+- [x] Verified the application **by default requests only basic Microsoft identity scopes**, not `XboxLive.signin`. Made Xbox Live permission request optional in the public configuration example; disabled by default and requiring an owned permissioned application registration.
+- [x] Parse the explicitly returned OAuth `scope` in memory and only mark `XboxLive.signin` verified when actually present. Scope metadata is erased after the worker exits; no tokens are stored or logged.
+- [x] Display the first actionable Xbox blocker after sign-in (typically `XBOX LIVE SCOPE NOT REQUESTED`) and **Fortnite streaming 0%**, without claiming that having a Microsoft account token starts xCloud.
+- [x] Rebuilt the PowerPC compressed Retail XEX and boot-tested the one-game homepage and Microsoft device-code request under Xenia.
+- [ ] Obtain permission to request Xbox scopes from a properly registered Microsoft public client; verify a real token's `scope` field.
+- [ ] Implement actual certificate-verified HTTPS requests to Xbox User and XSTS endpoints; the offline JSON builders do not authenticate to Xbox services.
+- [ ] Preserve authorized tokens safely and only for their actual intended service; the current OAuth flow **erases its token on worker exit**.
+- [ ] Determine whether Microsoft allows an unofficial xCloud client to create an authorized cloud session; do not invent a session or claim streaming when permission is unavailable.
+- [ ] Implement real WebRTC signaling/transport and H.264/audio decoding and gamepad return. Measure on physical RGH3. The stock retail Xbox 360 cannot normally execute unsigned homebrew XEX.
+
+See [Xbox service-auth preflight report](docs/XBOX_AUTH_SCOPE_PREFLIGHT_2026-10-21.md).
+
+## Current milestone: Fortnite homepage and Microsoft login screen (2026-10-20)
+
+- [x] Added a **separate game-selection homepage**, with Fortnite as the sole available card. A transitions to a dedicated device-code login page; B returns to games.
+- [x] The login page always uses the **actual `verification_uri` paired with the real Microsoft code**. The user-requested legacy `login.live.com/oauth20_remoteconnect.srf` link is labeled as a separate Live flow, **not forced onto an incompatible Entra v2 code**.
+- [x] Added expiration, polling-attempt count, next-poll countdown, and visible `authorization_pending` / `slow_down` state.
+- [x] Corrected the OAuth polling interval to begin **after** the HTTPS response; offline mock regression tests exercise `authorization_pending`, `slow_down` and success.
+- [x] Compiled the native PowerPC XEX and verified it boots into the new homepage in Xenia.
+- [ ] Confirm the **A-button transition to the separate login page** and complete the user's Microsoft approval (Xenia and real RGH3 are separate targets).
+- [ ] Add an independently authorized **Live OAuth device-flow client**, using a properly registered legacy application ID, only if the legacy remoteconnect endpoint is strictly required. **Never borrow another application's client ID or cross-use v2 user codes.**
+- [ ] Implement Xbox authorization/XSTS, xCloud session creation and negotiated WebRTC media before any claim of Fortnite playback.
+
+See [homepage/login implementation and tests](docs/HOMEPAGE_MICROSOFT_LOGIN_2026-10-20.md).
+
+## Current milestone: one-button Fortnite setup (2026-10-20)
+
+The previous GR33N/DeepPlay four-tab UI in historical phases below is **superseded** by a one-entry Fortnite **text terminal**. A URL is shown for reference; this is **not a browser or game-streaming client**.
+
+- [x] Replaced the terminal entrypoint with a Fortnite selector at `https://play.xbox.com/products/BT5P2X999VH2/fortnite`; one **A** button starts offline protocol tests, async DNS/TCP, then an independently verified Microsoft HTTPS Device Code request.
+- [x] Added sequential numbered log steps and a percentage bar. Percentages are observable client setup only, capped at 70% for confirmed Microsoft device flow; xCloud play remains **blocked**, not fake 100%.
+- [x] Fixed TLS 1.3 PSK-less early-secret HKDF input per RFC 8446. The native Xenia test received a **real device-code response** from the Microsoft server over TLS.
+- [x] Added SHA-384/RSA PKCS#1 certificate support and cryptographic positive/negative unit tests; PowerPC cryptographic startup test passes in Xenia.
+- [x] Updated the OAuth flow to rebase expiry after the HTTPS device-code response and hold **30 seconds before first token polling**; subsequent requests honor Microsoft's intervals, backoff and server-side expiry.
+- [x] Captured a real Xenia screenshot of the redesigned Fortnite menu; offline tests show **PASS**. Compiled/released Retail PowerPC XEX successfully on the developer's PC.
+- [ ] **OWNER XENIA INPUT TEST:** press **A** on a real gamepad, confirm steps 1–5 and read the real Microsoft code/expiry panel. Do not share the code, tokens or credentials.
+- [ ] **OWNER RGH HARDWARE TEST:** run the same build on a physical RGH3. Earlier real RGH TCP 10060 is still unresolved; Xenia success does not prove RGH networking.
+- [ ] Confirm user completes Microsoft OAuth token approval with a properly registered, permitted app ID; prior Xenia token request returned HTTP 400 and no authorization was confirmed.
+- [ ] Implement authorized Xbox Live/XSTS, Xbox Cloud Gaming session launch, WebRTC/ICE/DTLS/SRTP, audio/video codecs, and controller input before asserting Fortnite is playable.
+- [ ] Evaluate whether a full native browser is technically feasible; the current XEX has **no HTML5/WebView**. A direct `play.xbox.com` URL cannot boot a game by itself.
+
+See [one-button Fortnite notes](docs/FORTNITE_ONE_BUTTON_2026-10-20.md) and [current status](STATUS_DO_PROJETO.md).
+
+## Terminal-only native XEX — compiled and smoke-tested (2026-10-20)
+
+- [x] Backed up the previous GR33N/DeepPlay dashboard source and project configuration under private `PASTACODIGOBASE/ARQUIVOS_ANTIGOS/DASHBOARD_GR33N_20261020/`.
+- [x] Replaced `src/app.cpp` and `src/app.h` with a minimal **text terminal** using the Xbox 360's native Direct3D/XInput. No game grid, PS3 UI, WebView or HTML browser.
+- [x] Fixed the duplicate object name collision for XboxTLS13's `platform_xbox360.cpp` and corrected the XDK network cleanup API.
+- [x] Successfully compiled, linked and converted the current XEX to compressed Retail format. Confirmed SHA-256 and actual native Xenia launch.
+- [x] Confirmed automatic offline protocol checks and regional JSON tests show **PASS** in Xenia.
+- [x] Ran network and account diagnostics in Xenia: numeric IP 1.1.1.1 TCP 443/80 connected; Xbox.com 443 returned **10060**; Microsoft login failed at DNS before HTTPS, with no account authorization.
+- [ ] **TEST ON REAL RGH3**: launch the new executable, rerun `Y`, `X` (network) and `A` (login) and record exact stages/codes. Emulator TCP behavior is not real-console validation.
+- [ ] Decide whether a dedicated Xbox-native xCloud protocol client or a major native browser/HTML5/WebRTC engine port is viable. **There is no available web browser in this XEX.**
+- [ ] Authorize xCloud sessions, implement DTLS/SRTP/WebRTC, H.264 decode, audio playback and controller return path. Fortnite is not currently playable.
+
+Full evidence: [TERMINAL_TEST_RESULTS_2026-10-20.md](docs/TERMINAL_TEST_RESULTS_2026-10-20.md).
+
 ## Project root cleanup (2026-10-20)
 
 - [x] Archived stale `dist/` separately from the active `Release/`, and moved the XeLL/libxenon proof-of-concept to private `PASTACODIGOBASE/XBOX360_EXPERIMENTOS/`.
@@ -186,12 +276,12 @@ Checklists have three distinct meanings:
 
 ## Planned compilation and feedback cycle
 
-The project owner compiles. The assistant edits source files only.
+**Updated 2026-10-20:** The development PC has successfully built and XexTool-verified the one-button PowerPC XEX at the user's request. The owner remains responsible for console-side tests. Do not publish a ZIP or upload private configuration.
 
 1. Developer opens `XCLOUDFORXBOX360.sln` in **Release / Xbox 360** or runs `build_release.ps1`.
 2. Developer copies **only the XEX produced in `Release/`** to the RGH, with font data intended to be embedded.
 3. Developer reports the first C++/link error or the real TV screen output.
-4. Fixes are applied to source files; **no build, ZIP or overwrite of `Release/` is performed by the assistant**.
+4. When explicitly requested, the native build runs and updates `Release/XCloud360.xex`; no ZIP is produced. Always record compile logs and distinguish Xenia tests from real-console tests.
 5. Each passed milestone gets a dated hardware test report.
 
 **Start here:** [STATUS_DO_PROJETO.md](STATUS_DO_PROJETO.md) · [Research references](docs/REFERENCES.md) · [Network failure report](docs/TESTE_RGH3_2026-10-20.md).
